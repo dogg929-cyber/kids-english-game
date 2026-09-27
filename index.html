@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>キッズ英語ゲーム | Kids English Game</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===================== ホーム画面 ===================== -->
+<section id="screen-home" class="screen active">
+  <div class="home-wrap">
+    <h1 class="title">
+      <span class="title-star">★</span>
+      キッズ えいごゲーム
+      <span class="title-star">★</span>
+    </h1>
+    <p class="subtitle">Kids English Game — 2〜5さい向け</p>
+
+    <div class="category-grid">
+      <button class="cat-btn cat-animals" data-category="animals">
+        <span class="cat-emoji">🐶</span>
+        <span class="cat-label">どうぶつ<br><small>Animals</small></span>
+      </button>
+      <button class="cat-btn cat-colors" data-category="colors">
+        <span class="cat-emoji">🌈</span>
+        <span class="cat-label">いろ<br><small>Colors</small></span>
+      </button>
+      <button class="cat-btn cat-fruits" data-category="fruits">
+        <span class="cat-emoji">🍎</span>
+        <span class="cat-label">くだもの<br><small>Fruits</small></span>
+      </button>
+      <button class="cat-btn cat-numbers" data-category="numbers">
+        <span class="cat-emoji">🔢</span>
+        <span class="cat-label">すうじ<br><small>Numbers</small></span>
+      </button>
+    </div>
+
+    <button id="quiz-start-btn" class="quiz-launch-btn">
+      🎯 クイズであそぶ！ <span class="en">Quiz Time</span>
+    </button>
+  </div>
+</section>
+
+<!-- ===================== フラッシュカード画面 ===================== -->
+<section id="screen-cards" class="screen">
+  <button class="back-btn" data-target="screen-home">← もどる</button>
+
+  <div class="card-wrap">
+    <div id="flashcard" class="flashcard">
+      <div class="flashcard-emoji" id="card-emoji">🐶</div>
+      <div class="flashcard-word" id="card-word">dog</div>
+      <div class="flashcard-word-jp" id="card-word-jp">いぬ</div>
+    </div>
+
+    <button id="speak-btn" class="speak-btn" aria-label="はつおんをきく">
+      🔊
+    </button>
+
+    <div class="nav-row">
+      <button id="prev-btn" class="nav-btn">◀</button>
+      <div id="progress-dots" class="progress-dots"></div>
+      <button id="next-btn" class="nav-btn">▶</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== クイズ画面 ===================== -->
+<section id="screen-quiz" class="screen">
+  <button class="back-btn" data-target="screen-home">← もどる</button>
+
+  <div class="quiz-wrap">
+    <div class="quiz-header">
+      <button id="quiz-replay-btn" class="quiz-replay-btn">🔊 きいてね</button>
+      <div class="quiz-score">⭐️ <span id="quiz-score">0</span></div>
+    </div>
+
+    <div id="quiz-options" class="quiz-options"></div>
+  </div>
+
+  <div id="quiz-feedback" class="quiz-feedback"></div>
+</section>
+
+<!-- ===================== 結果画面 ===================== -->
+<section id="screen-result" class="screen">
+  <div class="result-wrap">
+    <div class="result-emoji">🏆</div>
+    <h2>やったね！</h2>
+    <p class="result-score">スコア: <span id="final-score">0</span> / <span id="final-total">0</span></p>
+    <button id="result-again-btn" class="quiz-launch-btn">もういちど</button>
+    <button id="result-home-btn" class="back-btn-solid">ホームへ</button>
+  </div>
+</section>
+
+<div id="confetti-layer" aria-hidden="true"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
