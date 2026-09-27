@@ -349,7 +349,7 @@ button {
 .quiz-opt.disabled { pointer-events: none; }
 
 /* 不正解タップ: 否定的な色は使わず、そっと揺れるだけ */
-.quiz-opt.shake { animation: shake 0.4s ease; }
+.quiz-opt.shake, .zoo-tap.shake { animation: shake 0.4s ease; }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-6px); }
@@ -363,7 +363,7 @@ button {
   line-height: 1;
   margin-bottom: 4px;
 }
-.speak-emoji.bounce-jump { animation: bounceJump 0.8s ease; }
+.speak-emoji.bounce-jump, .zoo-emoji.bounce-jump { animation: bounceJump 0.8s ease; }
 @keyframes bounceJump {
   0% { transform: translateY(0) scale(1); }
   25% { transform: translateY(-28px) scale(1.06); }
@@ -457,4 +457,260 @@ button {
 @media (min-width: 600px) {
   .category-grid { gap: 22px; }
   .cat-emoji { font-size: 60px; }
+}
+
+/* =====================================================================
+ * Zoo Adventure（動物園さがしゲーム）
+ * 「静止した4択」ではなく、画面全体が動く動物園そのものになるモード。
+ * 既存のフラッシュカード／クイズのCSSクラスの多くをそのまま再利用しており、
+ * ここで新規に定義しているのは動物園の背景・動物の配置と動きだけです。
+ * ===================================================================== */
+
+.zoo-launch-btn {
+  margin-top: 14px;
+  background: linear-gradient(120deg, var(--green), var(--blue));
+}
+
+/* Zoo画面は動物園全体を画面いっぱいに使うため、通常の.screenの余白/中央寄せを外す */
+.screen.zoo-screen {
+  padding: 0;
+  overflow: hidden;
+}
+.zoo-screen.active {
+  display: block;
+}
+
+/* ---------- 背景の風景（すべて装飾・タップ不可） ---------- */
+.zoo-scenery {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: linear-gradient(180deg, #BFE8FF 0%, #E3F6FF 38%, #D3F3C2 40%, #BFE8A8 100%);
+}
+
+.zoo-sun {
+  position: absolute;
+  top: 14px;
+  right: 20px;
+  font-size: 38px;
+  opacity: 0.95;
+}
+
+.zoo-cloud {
+  position: absolute;
+  font-size: 32px;
+  opacity: 0.85;
+}
+.zoo-cloud-1 { top: 24px; left: 10%; animation: zoo-drift 24s ease-in-out infinite; }
+.zoo-cloud-2 { top: 58px; left: 52%; font-size: 26px; animation: zoo-drift 30s ease-in-out infinite reverse; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes zoo-drift {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(20px); }
+  }
+}
+
+.zoo-tree {
+  position: absolute;
+  bottom: 15%;
+  font-size: 60px;
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.12));
+}
+.zoo-tree-left { left: 1%; }
+.zoo-tree-right { right: 1%; font-size: 52px; }
+
+.zoo-pond {
+  position: absolute;
+  left: 6%;
+  bottom: 17%;
+  width: 92px;
+  height: 52px;
+  background: linear-gradient(180deg, #93E1FF, #5EC6F2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: inset 0 -4px 8px rgba(0, 0, 0, 0.12);
+}
+
+.zoo-rock {
+  position: absolute;
+  bottom: 18%;
+  font-size: 26px;
+  opacity: 0.9;
+}
+.zoo-rock-1 { right: 15%; }
+.zoo-rock-2 { right: 8%; bottom: 15%; font-size: 20px; }
+
+.zoo-grass {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16%;
+  background: linear-gradient(180deg, #9EDD80, #6FC24E);
+}
+
+.zoo-fence {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14%;
+  height: 12px;
+  background-image: repeating-linear-gradient(90deg, #D8A05C 0 8px, transparent 8px 20px);
+  opacity: 0.85;
+}
+
+/* ---------- 質問バナー ---------- */
+.zoo-question-banner {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 14px 0;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 24px;
+  box-shadow: 0 6px 0 var(--shadow), 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+.zoo-question-text { flex: 1; text-align: center; min-width: 0; }
+.zoo-question-banner .quiz-question-en { margin: 0; font-size: clamp(18px, 5.4vw, 23px); }
+.zoo-question-banner .quiz-question-jp { margin: 2px 0 0; }
+
+.zoo-replay-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(150deg, var(--yellow), var(--orange));
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 0 var(--shadow);
+}
+.zoo-replay-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--shadow); }
+.zoo-replay-btn.speaking { animation: pulse 0.6s ease infinite; }
+
+/* ---------- 動物たちがうごきまわるエリア ---------- */
+.zoo-play-area {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 96px; /* 質問バナーの高さぶんの余白 */
+  bottom: 16%;
+  z-index: 2;
+}
+
+/* アンカー（位置決め用・見た目を持たない） */
+.zoo-animal {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.zoo-animal-mover {
+  will-change: transform;
+}
+/* 正解した動物はその場でうごきを止める */
+.zoo-animal.correct .zoo-animal-mover {
+  animation-play-state: paused;
+}
+
+/* 実際にタップする、見た目より大きめの丸い領域 */
+.zoo-tap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 78px;
+  height: 78px;
+  background: transparent;
+  border-radius: 50%;
+}
+.zoo-tap:active { transform: scale(0.94); }
+
+.zoo-emoji {
+  font-size: clamp(40px, 11vw, 56px);
+  line-height: 1;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.15));
+}
+/* 将来PNG/WebPのオリジナルキャラクターに差し替えたときのサイズ調整 */
+.zoo-emoji-img {
+  width: clamp(48px, 13vw, 64px);
+  height: auto;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.15));
+}
+
+/* ---------- 動物ごとのうごき ----------
+ * 幼児が目で追える程度のゆっくりした速さにしてあります。
+ * prefers-reduced-motion が指定されている場合は静止表示にします。 */
+@media (prefers-reduced-motion: no-preference) {
+  .mv-walk     { animation-name: zoo-walk;     animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+  .mv-cross    { animation-name: zoo-cross;    animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+  .mv-walkstop { animation-name: zoo-walkstop; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+  .mv-jump     { animation-name: zoo-jump;     animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+  .mv-hop      { animation-name: zoo-hop;      animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zoo-animal-mover { animation: none !important; }
+}
+
+@keyframes zoo-walk {
+  0%   { transform: translateX(-14px) scaleX(-1); }
+  48%  { transform: translateX(14px) scaleX(-1); }
+  50%  { transform: translateX(14px) scaleX(1); }
+  98%  { transform: translateX(-14px) scaleX(1); }
+  100% { transform: translateX(-14px) scaleX(-1); }
+}
+@keyframes zoo-cross {
+  0%   { transform: translateX(-30px) scaleX(-1); }
+  50%  { transform: translateX(30px) scaleX(1); }
+  100% { transform: translateX(-30px) scaleX(-1); }
+}
+@keyframes zoo-walkstop {
+  0%   { transform: translateX(-12px); }
+  30%  { transform: translateX(12px); }
+  55%  { transform: translateX(12px); }
+  85%  { transform: translateX(-12px); }
+  100% { transform: translateX(-12px); }
+}
+@keyframes zoo-jump {
+  0%, 70% { transform: translateY(0); }
+  80%     { transform: translateY(-22px); }
+  90%     { transform: translateY(0); }
+  95%     { transform: translateY(-8px); }
+  100%    { transform: translateY(0); }
+}
+@keyframes zoo-hop {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(4px, -10px); }
+  50%      { transform: translate(8px, 0); }
+  75%      { transform: translate(4px, -10px); }
+}
+
+/* ---------- 発音練習 / ラウンド終了オーバーレイ ---------- */
+.zoo-speak-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: rgba(255, 250, 240, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.zoo-speak-overlay[hidden] { display: none; }
+
+.zoo-speak-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }

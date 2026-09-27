@@ -40,6 +40,10 @@
     <button id="quiz-start-btn" class="quiz-launch-btn">
       🎯 クイズであそぶ！ <span class="en">Quiz Time</span>
     </button>
+
+    <button id="zoo-start-btn" class="quiz-launch-btn zoo-launch-btn">
+      🦁 どうぶつえんへ！ <span class="en">Zoo Adventure</span>
+    </button>
   </div>
 </section>
 
@@ -109,9 +113,68 @@
   </div>
 </section>
 
+<!-- ===================== Zoo Adventure（動物園さがしゲーム） ===================== -->
+<section id="screen-zoo" class="screen zoo-screen">
+  <button class="back-btn" data-target="screen-home">← もどる</button>
+  <div class="quiz-score-badge zoo-score-badge">⭐️ <span id="zoo-score">0</span></div>
+
+  <!-- 背景の風景（装飾のみ・タップ不可） -->
+  <div class="zoo-scenery" aria-hidden="true">
+    <div class="zoo-sun">☀️</div>
+    <span class="zoo-cloud zoo-cloud-1">☁️</span>
+    <span class="zoo-cloud zoo-cloud-2">☁️</span>
+    <div class="zoo-tree zoo-tree-left">🌳</div>
+    <div class="zoo-tree zoo-tree-right">🌳</div>
+    <div class="zoo-pond">🐟</div>
+    <div class="zoo-rock zoo-rock-1">🪨</div>
+    <div class="zoo-rock zoo-rock-2">🪨</div>
+    <div class="zoo-grass"></div>
+    <div class="zoo-fence"></div>
+  </div>
+
+  <!-- 質問バナー -->
+  <div class="zoo-question-banner">
+    <button id="zoo-replay-btn" class="zoo-replay-btn" aria-label="もういちど きく">🔊</button>
+    <div class="zoo-question-text">
+      <p class="quiz-question-en" id="zoo-question-en">Where is the cat?</p>
+      <p class="quiz-question-jp" id="zoo-question-jp">ねこはどこ？</p>
+    </div>
+  </div>
+
+  <!-- 動物たちがうごきまわるエリア -->
+  <div id="zoo-play-area" class="zoo-play-area"></div>
+
+  <!-- 発音練習オーバーレイ -->
+  <div id="zoo-speak-overlay" class="zoo-speak-overlay" hidden>
+    <div class="zoo-speak-card">
+      <div class="speak-emoji" id="zoo-speak-emoji">🐱</div>
+      <div class="mic-icon" id="zoo-mic-icon">🎤</div>
+      <p class="speak-prompt-sub">Can you say</p>
+      <p class="speak-prompt-word" id="zoo-speak-word">CAT</p>
+      <p class="mic-status" id="zoo-mic-status"></p>
+      <div class="speak-actions">
+        <button id="zoo-hear-example-btn" class="quiz-replay-btn">🔊 おてほんを きく</button>
+      </div>
+      <button id="zoo-skip-btn" class="skip-btn">つぎへ →</button>
+    </div>
+  </div>
+
+  <!-- ラウンド終了オーバーレイ -->
+  <div id="zoo-round-complete" class="zoo-speak-overlay" hidden>
+    <div class="zoo-speak-card">
+      <div class="speak-emoji">🎉</div>
+      <p class="speak-prompt-sub" style="font-size:20px;">やったね！</p>
+      <p class="mic-status" id="zoo-round-score"></p>
+      <button id="zoo-again-btn" class="quiz-launch-btn" style="margin-top:14px;">もういちど</button>
+      <button id="zoo-home-btn" class="back-btn-solid" style="margin-top:12px;">ホームへ</button>
+    </div>
+  </div>
+</section>
+
 <div id="confetti-layer" aria-hidden="true"></div>
 
 <script src="speech.js"></script>
 <script src="app.js"></script>
+<script src="zoo.js"></script>
 </body>
 </html>
