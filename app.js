@@ -1,18 +1,24 @@
 "use strict";
 
 /* ===================== データ ===================== */
+/*
+ * animals には、新しい「きく→えらぶ→はなす」学習ループ用に
+ * jpQuestion（「◯◯さんはどこ？」という質問文の日本語表示）を追加しています。
+ * 他のカテゴリ（colors / fruits / numbers）は、既存のフラッシュカード機能でのみ
+ * 使用し、今回の音声認識ループはAnimalsカテゴリから実装します。
+ */
 const WORD_DATA = {
   animals: [
-    { emoji: "🐶", en: "dog", jp: "いぬ" },
-    { emoji: "🐱", en: "cat", jp: "ねこ" },
-    { emoji: "🐰", en: "rabbit", jp: "うさぎ" },
-    { emoji: "🐻", en: "bear", jp: "くま" },
-    { emoji: "🦁", en: "lion", jp: "らいおん" },
-    { emoji: "🐘", en: "elephant", jp: "ぞう" },
-    { emoji: "🐸", en: "frog", jp: "かえる" },
-    { emoji: "🐦", en: "bird", jp: "とり" },
-    { emoji: "🐟", en: "fish", jp: "さかな" },
-    { emoji: "🐵", en: "monkey", jp: "さる" },
+    { emoji: "🐶", en: "dog", jp: "いぬ", jpQuestion: "わんちゃんはどこ？" },
+    { emoji: "🐱", en: "cat", jp: "ねこ", jpQuestion: "ねこちゃんはどこ？" },
+    { emoji: "🐰", en: "rabbit", jp: "うさぎ", jpQuestion: "うさぎさんはどこ？" },
+    { emoji: "🐻", en: "bear", jp: "くま", jpQuestion: "くまさんはどこ？" },
+    { emoji: "🦁", en: "lion", jp: "らいおん", jpQuestion: "らいおんさんはどこ？" },
+    { emoji: "🐘", en: "elephant", jp: "ぞう", jpQuestion: "ぞうさんはどこ？" },
+    { emoji: "🐸", en: "frog", jp: "かえる", jpQuestion: "かえるさんはどこ？" },
+    { emoji: "🐦", en: "bird", jp: "とり", jpQuestion: "とりさんはどこ？" },
+    { emoji: "🐟", en: "fish", jp: "さかな", jpQuestion: "さかなさんはどこ？" },
+    { emoji: "🐵", en: "monkey", jp: "さる", jpQuestion: "さるさんはどこ？" },
   ],
   colors: [
     { emoji: "🔴", en: "red", jp: "あか" },
@@ -48,7 +54,10 @@ const WORD_DATA = {
   ],
 };
 
-const QUIZ_LENGTH = 6;
+const QUIZ_LENGTH = 6; // 1回のクイズで扱う単語数（Animalsから出題）
+const OPTION_COUNT = 4; // 選択肢の数（3〜4匹のうち今回は4で統一）
+const LISTEN_TIMEOUT_MS = 6000; // マイクが無反応とみなすまでの時間
+const FALLBACK_SPEAK_DELAY_MS = 2200; // 音声認識が使えない場合の「発音する時間」の目安
 
 /* ===================== 状態 ===================== */
 const state = {
@@ -56,10 +65,10 @@ const state = {
   cardIndex: 0,
   quiz: {
     pool: [],
-    order: [],
     current: 0,
     score: 0,
-    answered: false,
+    picked: false, // 質問フェーズで正解をすでに選んだか
+    pendingWord: null, // 発音フェーズで対象になっている単語
   },
 };
 
@@ -71,53 +80,15 @@ function showScreen(id) {
 
 document.querySelectorAll(".back-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    stopSpeaking();
+    Speech.cancelSpeaking();
+    Speech.stopListening();
     showScreen(btn.dataset.target);
   });
 });
 
-/* ===================== 音声合成 ===================== */
-let voicesCache = [];
-function loadVoices() {
-  voicesCache = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
-}
-if (window.speechSynthesis) {
-  loadVoices();
-  window.speechSynthesis.onvoiceschanged = loadVoices;
-}
-
-function pickEnglishVoice() {
-  if (!voicesCache.length) loadVoices();
-  return (
-    voicesCache.find((v) => /en-US/i.test(v.lang) && /female|samantha|zira/i.test(v.name)) ||
-    voicesCache.find((v) => /en-US/i.test(v.lang)) ||
-    voicesCache.find((v) => /^en/i.test(v.lang)) ||
-    null
-  );
-}
-
-function stopSpeaking() {
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-}
-
-function speakWord(word, onEnd) {
-  if (!window.speechSynthesis) {
-    playTone(660, 0.15);
-    if (onEnd) setTimeout(onEnd, 300);
-    return;
-  }
-  stopSpeaking();
-  const utter = new SpeechSynthesisUtterance(word);
-  utter.lang = "en-US";
-  utter.rate = 0.8;
-  utter.pitch = 1.15;
-  const voice = pickEnglishVoice();
-  if (voice) utter.voice = voice;
-  if (onEnd) utter.onend = onEnd;
-  window.speechSynthesis.speak(utter);
-}
-
 /* ===================== 効果音 (Web Audio) ===================== */
+/* 音声認識/合成とは無関係な「ちょっとした効果音」のみここで扱う。
+   否定的な音（ブザーなど）は学習体験の方針上、使用しない。 */
 let audioCtx = null;
 function getAudioCtx() {
   if (!audioCtx) {
@@ -148,10 +119,6 @@ function playCorrectSound() {
   setTimeout(() => playTone(783.99, 0.22), 240);
 }
 
-function playWrongSound() {
-  playTone(220, 0.25, "triangle");
-}
-
 /* ===================== 紙吹雪 ===================== */
 const CONFETTI_COLORS = ["#FF6FA5", "#FFD93E", "#4DA9FF", "#5FD068", "#B18BFF", "#FFA53E"];
 function launchConfetti(count = 24) {
@@ -168,7 +135,18 @@ function launchConfetti(count = 24) {
   }
 }
 
+/* ===================== ユーティリティ ===================== */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /* ===================== カテゴリ選択 → フラッシュカード ===================== */
+/* （既存機能：変更なし） */
 document.querySelectorAll(".cat-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     state.category = btn.dataset.category;
@@ -210,14 +188,16 @@ function renderCard() {
   document.getElementById("prev-btn").disabled = state.cardIndex === 0;
   document.getElementById("next-btn").disabled = state.cardIndex === words.length - 1;
 
-  speakWord(word.en);
+  Speech.speak(word.en);
 }
 
 document.getElementById("speak-btn").addEventListener("click", () => {
   const word = WORD_DATA[state.category][state.cardIndex];
   const btn = document.getElementById("speak-btn");
-  btn.classList.add("speaking");
-  speakWord(word.en, () => btn.classList.remove("speaking"));
+  Speech.speak(word.en, {
+    onStart: () => btn.classList.add("speaking"),
+    onEnd: () => btn.classList.remove("speaking"),
+  });
 });
 
 document.getElementById("prev-btn").addEventListener("click", () => {
@@ -235,131 +215,268 @@ document.getElementById("next-btn").addEventListener("click", () => {
   }
 });
 
-// フラッシュカード自体をタップしても発音
+// フラッシュカード自体をタップしても発音（既存機能）
 document.getElementById("flashcard").addEventListener("click", () => {
   const word = WORD_DATA[state.category][state.cardIndex];
-  speakWord(word.en);
+  Speech.speak(word.en);
 });
 
-/* ===================== クイズ ===================== */
+/* =====================================================================
+ * クイズ（新：きく → えらぶ → はなす → できたら次へ）
+ * Animalsカテゴリのみ対応。
+ * ===================================================================== */
+
+const quizScoreEl = document.getElementById("quiz-score");
+const questionPhaseEl = document.getElementById("quiz-question-phase");
+const speakPhaseEl = document.getElementById("quiz-speak-phase");
+const questionEnEl = document.getElementById("quiz-question-en");
+const questionJpEl = document.getElementById("quiz-question-jp");
+const quizOptionsEl = document.getElementById("quiz-options");
+const quizReplayBtn = document.getElementById("quiz-replay-btn");
+const speakEmojiEl = document.getElementById("speak-phase-emoji");
+const micIconEl = document.getElementById("mic-icon");
+const speakTargetWordEl = document.getElementById("speak-target-word");
+const micStatusEl = document.getElementById("mic-status");
+const hearExampleBtn = document.getElementById("hear-example-btn");
+const skipBtn = document.getElementById("skip-btn");
+
 document.getElementById("quiz-start-btn").addEventListener("click", startQuiz);
 document.getElementById("result-again-btn").addEventListener("click", startQuiz);
 document.getElementById("result-home-btn").addEventListener("click", () => {
   showScreen("screen-home");
 });
 
-function shuffle(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function buildQuizPool() {
-  // 全カテゴリから単語を集める（バラエティを持たせる）
-  let all = [];
-  Object.values(WORD_DATA).forEach((list) => {
-    all = all.concat(list);
-  });
-  return shuffle(all).slice(0, QUIZ_LENGTH);
+function buildAnimalQuizPool() {
+  return shuffle(WORD_DATA.animals).slice(0, QUIZ_LENGTH);
 }
 
 function startQuiz() {
-  state.quiz.pool = buildQuizPool();
+  state.quiz.pool = buildAnimalQuizPool();
   state.quiz.current = 0;
   state.quiz.score = 0;
-  state.quiz.answered = false;
-  document.getElementById("quiz-score").textContent = "0";
-  document.getElementById("quiz-feedback").textContent = "";
+  quizScoreEl.textContent = "0";
   showScreen("screen-quiz");
-  renderQuizQuestion();
+  renderQuestionPhase();
 }
 
-function renderQuizQuestion() {
-  const { pool, current } = state.quiz;
-  const correctWord = pool[current];
-  state.quiz.answered = false;
+/* ---------- フェーズ1: きいて、えらぶ ---------- */
 
-  document.getElementById("quiz-feedback").textContent = "";
-  document.getElementById("quiz-feedback").className = "quiz-feedback";
+function switchToQuestionPhase() {
+  speakPhaseEl.hidden = true;
+  questionPhaseEl.hidden = false;
+}
 
-  // 選択肢: 正解 + ランダムな3つのダミー（重複回避）
-  let allWords = [];
-  Object.values(WORD_DATA).forEach((list) => (allWords = allWords.concat(list)));
-  const distractors = shuffle(allWords.filter((w) => w.en !== correctWord.en)).slice(0, 3);
+function switchToSpeakPhase() {
+  questionPhaseEl.hidden = true;
+  speakPhaseEl.hidden = false;
+}
+
+function renderQuestionPhase() {
+  Speech.cancelSpeaking();
+  Speech.stopListening();
+  state.quiz.picked = false;
+
+  const correctWord = state.quiz.pool[state.quiz.current];
+  switchToQuestionPhase();
+
+  questionEnEl.textContent = `Where is the ${correctWord.en}?`;
+  questionJpEl.textContent = correctWord.jpQuestion || `${correctWord.jp}はどこ？`;
+
+  renderQuizOptions(correctWord);
+
+  // 少し間を置いてから質問文を読み上げる（画面が切り替わった直後は聞き取りにくいため）
+  setTimeout(() => {
+    quizReplayBtn.classList.add("speaking");
+    Speech.speak(`Where is the ${correctWord.en}?`, {
+      onEnd: () => quizReplayBtn.classList.remove("speaking"),
+    });
+  }, 300);
+}
+
+function renderQuizOptions(correctWord) {
+  quizOptionsEl.innerHTML = "";
+  const distractors = shuffle(
+    WORD_DATA.animals.filter((w) => w.en !== correctWord.en)
+  ).slice(0, OPTION_COUNT - 1);
   const options = shuffle([correctWord, ...distractors]);
 
-  const optWrap = document.getElementById("quiz-options");
-  optWrap.innerHTML = "";
   options.forEach((opt) => {
     const btn = document.createElement("button");
     btn.className = "quiz-opt";
     btn.textContent = opt.emoji;
     btn.setAttribute("aria-label", opt.en);
-    btn.addEventListener("click", () => handleQuizAnswer(btn, opt, correctWord));
-    optWrap.appendChild(btn);
+    btn.addEventListener("click", () => handleAnimalPick(btn, opt, correctWord));
+    quizOptionsEl.appendChild(btn);
   });
-
-  // 出題音声（少し間を置いてから発音）
-  const replayBtn = document.getElementById("quiz-replay-btn");
-  setTimeout(() => {
-    replayBtn.classList.add("speaking");
-    speakWord(correctWord.en, () => replayBtn.classList.remove("speaking"));
-  }, 300);
 }
 
-document.getElementById("quiz-replay-btn").addEventListener("click", () => {
+quizReplayBtn.addEventListener("click", () => {
   const correctWord = state.quiz.pool[state.quiz.current];
-  const btn = document.getElementById("quiz-replay-btn");
-  btn.classList.add("speaking");
-  speakWord(correctWord.en, () => btn.classList.remove("speaking"));
+  quizReplayBtn.classList.add("speaking");
+  Speech.speak(`Where is the ${correctWord.en}?`, {
+    onEnd: () => quizReplayBtn.classList.remove("speaking"),
+  });
 });
 
-function handleQuizAnswer(btn, chosen, correctWord) {
-  if (state.quiz.answered) return;
-  state.quiz.answered = true;
+function handleAnimalPick(btn, chosen, correctWord) {
+  if (state.quiz.picked) return;
 
-  const allOptBtns = document.querySelectorAll(".quiz-opt");
-  allOptBtns.forEach((b) => b.classList.add("disabled"));
-
-  const feedback = document.getElementById("quiz-feedback");
-
-  if (chosen.en === correctWord.en) {
-    btn.classList.add("correct");
-    state.quiz.score++;
-    document.getElementById("quiz-score").textContent = state.quiz.score;
-    feedback.textContent = "🎉 せいかい！ Great job!";
-    feedback.className = "quiz-feedback";
-    playCorrectSound();
-    launchConfetti(18);
-  } else {
-    btn.classList.add("wrong");
-    feedback.textContent = "😅 おしい！ Try again!";
-    feedback.className = "quiz-feedback wrong-text";
-    playWrongSound();
-    // 正解も表示してあげる
-    allOptBtns.forEach((b) => {
-      if (b.getAttribute("aria-label") === correctWord.en) b.classList.add("correct");
-    });
+  if (chosen.en !== correctWord.en) {
+    // 幼児向け方針：不正解でも否定的な演出はしない。そっと揺れて再挑戦を促すだけ。
+    btn.classList.add("shake");
+    setTimeout(() => btn.classList.remove("shake"), 400);
+    return;
   }
 
-  setTimeout(() => {
-    state.quiz.current++;
-    if (state.quiz.current >= state.quiz.pool.length) {
-      finishQuiz();
-    } else {
-      renderQuizQuestion();
-    }
-  }, 1400);
+  state.quiz.picked = true;
+  document.querySelectorAll(".quiz-opt").forEach((b) => b.classList.add("disabled"));
+  btn.classList.add("correct");
+
+  // "Elephant!" と読み上げてから発音フェーズへ
+  Speech.speak(correctWord.en, {
+    onEnd: () => enterSpeakPhase(correctWord),
+  });
+}
+
+/* ---------- フェーズ2: じぶんではなしてみよう ---------- */
+
+function enterSpeakPhase(word) {
+  state.quiz.pendingWord = word;
+  switchToSpeakPhase();
+
+  speakEmojiEl.textContent = word.emoji;
+  speakEmojiEl.classList.remove("bounce-jump");
+  speakTargetWordEl.textContent = word.en.toUpperCase();
+  micStatusEl.textContent = "";
+  micIconEl.classList.remove("listening");
+
+  promptPronunciation(word);
+}
+
+function promptPronunciation(word) {
+  Speech.speak(`Can you say ${word.en}?`, {
+    onEnd: () => beginListening(word),
+  });
+}
+
+function beginListening(word) {
+  // 現在発音フェーズの対象が変わっていないか確認（連打・画面遷移対策）
+  if (state.quiz.pendingWord !== word) return;
+
+  if (!Speech.isRecognitionSupported()) {
+    // 音声認識が使えない端末（未対応 / 権限拒否済み）向けフォールバック：
+    // 「言ってみよう」の時間をとってから、そのまま成功扱いで進める。
+    micIconEl.classList.remove("listening");
+    micStatusEl.textContent = "🎤 いってみよう！";
+    setTimeout(() => {
+      if (state.quiz.pendingWord === word) handlePronunciationSuccess(word);
+    }, FALLBACK_SPEAK_DELAY_MS);
+    return;
+  }
+
+  micIconEl.classList.add("listening");
+  micStatusEl.textContent = "きいているよ…";
+
+  Speech.listen({
+    timeoutMs: LISTEN_TIMEOUT_MS,
+    onResult: (transcript) => {
+      if (state.quiz.pendingWord !== word) return;
+      micIconEl.classList.remove("listening");
+      if (Speech.matchesWord(transcript, word.en)) {
+        handlePronunciationSuccess(word);
+      } else {
+        handlePronunciationRetry(word);
+      }
+    },
+    onNoSpeech: () => {
+      if (state.quiz.pendingWord !== word) return;
+      micIconEl.classList.remove("listening");
+      handlePronunciationRetry(word);
+    },
+    onDenied: () => {
+      if (state.quiz.pendingWord !== word) return;
+      // 以降は音声認識を使わず、フォールバックの流れで進める
+      micIconEl.classList.remove("listening");
+      micStatusEl.textContent = "🎤 いってみよう！";
+      setTimeout(() => {
+        if (state.quiz.pendingWord === word) handlePronunciationSuccess(word);
+      }, FALLBACK_SPEAK_DELAY_MS);
+    },
+    onUnsupported: () => {
+      if (state.quiz.pendingWord !== word) return;
+      micIconEl.classList.remove("listening");
+      micStatusEl.textContent = "🎤 いってみよう！";
+      setTimeout(() => {
+        if (state.quiz.pendingWord === word) handlePronunciationSuccess(word);
+      }, FALLBACK_SPEAK_DELAY_MS);
+    },
+  });
+}
+
+function handlePronunciationRetry(word) {
+  if (state.quiz.pendingWord !== word) return;
+  micStatusEl.textContent = "Let's try again!";
+  Speech.speak("Let's try again!", {
+    onEnd: () => {
+      // マイクは自動で再開せず、「おてほんを聞く」または再タップを待つ。
+      // （幼児が連続で聞き取られ続けることによる混乱を避けるため）
+      if (state.quiz.pendingWord === word) {
+        micStatusEl.textContent = "🔊 おてほんを きいてみよう";
+      }
+    },
+  });
+}
+
+hearExampleBtn.addEventListener("click", () => {
+  const word = state.quiz.pendingWord;
+  if (!word) return;
+  Speech.cancelSpeaking();
+  Speech.stopListening();
+  micIconEl.classList.remove("listening");
+  micStatusEl.textContent = "";
+  Speech.speak(word.en, {
+    onEnd: () => beginListening(word),
+  });
+});
+
+skipBtn.addEventListener("click", () => {
+  const word = state.quiz.pendingWord;
+  Speech.cancelSpeaking();
+  Speech.stopListening();
+  if (word && state.quiz.pendingWord === word) {
+    advanceToNextQuestion();
+  }
+});
+
+function handlePronunciationSuccess(word) {
+  if (state.quiz.pendingWord !== word) return;
+  state.quiz.pendingWord = null;
+
+  state.quiz.score++;
+  quizScoreEl.textContent = state.quiz.score;
+  micStatusEl.textContent = "Great job! 🎉";
+
+  Speech.speak("Great job!");
+  speakEmojiEl.classList.add("bounce-jump");
+  playCorrectSound();
+  launchConfetti(24);
+
+  setTimeout(() => advanceToNextQuestion(), 1600);
+}
+
+function advanceToNextQuestion() {
+  state.quiz.pendingWord = null;
+  state.quiz.current++;
+  if (state.quiz.current >= state.quiz.pool.length) {
+    finishQuiz();
+  } else {
+    renderQuestionPhase();
+  }
 }
 
 function finishQuiz() {
   document.getElementById("final-score").textContent = state.quiz.score;
   document.getElementById("final-total").textContent = state.quiz.pool.length;
   showScreen("screen-result");
-  if (state.quiz.score >= Math.ceil(state.quiz.pool.length * 0.7)) {
-    launchConfetti(40);
-  }
+  launchConfetti(40);
 }

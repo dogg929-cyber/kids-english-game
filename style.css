@@ -275,39 +275,62 @@ button {
   max-width: 460px;
 }
 
-.quiz-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 22px;
+.quiz-score-badge {
+  position: absolute;
+  top: 18px;
+  right: 16px;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--orange);
+  background: white;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: 0 4px 0 var(--shadow);
+  z-index: 5;
 }
+
+.quiz-phase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: fadeIn 0.3s ease;
+}
+.quiz-phase[hidden] { display: none; }
 
 .quiz-replay-btn {
   background: white;
   color: var(--text-dark);
   font-weight: 800;
-  font-size: 17px;
-  padding: 14px 22px;
+  font-size: 16px;
+  padding: 12px 20px;
   border-radius: 999px;
   box-shadow: 0 5px 0 var(--shadow);
+  margin-bottom: 18px;
 }
 .quiz-replay-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--shadow); }
 .quiz-replay-btn.speaking { animation: pulse 0.6s ease infinite; }
 
-.quiz-score {
-  font-size: 18px;
+.quiz-question-en {
+  font-size: clamp(22px, 6.5vw, 28px);
   font-weight: 900;
-  color: var(--orange);
-  background: white;
-  padding: 10px 18px;
-  border-radius: 999px;
-  box-shadow: 0 4px 0 var(--shadow);
+  color: var(--pink);
+  text-align: center;
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+.quiz-question-jp {
+  font-size: 14px;
+  font-weight: 700;
+  color: #9a8ea6;
+  text-align: center;
+  margin: 0 0 22px;
 }
 
 .quiz-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  width: 100%;
 }
 
 .quiz-opt {
@@ -323,18 +346,78 @@ button {
 }
 .quiz-opt:active { transform: translateY(5px); box-shadow: 0 2px 0 var(--shadow); }
 .quiz-opt.correct { background: #DFF7E3; box-shadow: 0 8px 0 #8FD9A0; }
-.quiz-opt.wrong { background: #FFE3E3; box-shadow: 0 8px 0 #F2A5A5; }
 .quiz-opt.disabled { pointer-events: none; }
 
-.quiz-feedback {
-  margin-top: 22px;
-  font-size: 20px;
-  font-weight: 900;
-  min-height: 30px;
-  text-align: center;
-  color: var(--green);
+/* 不正解タップ: 否定的な色は使わず、そっと揺れるだけ */
+.quiz-opt.shake { animation: shake 0.4s ease; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
 }
-.quiz-feedback.wrong-text { color: #FF6B6B; }
+
+/* ---------- 発音フェーズ ---------- */
+.speak-emoji {
+  font-size: clamp(72px, 22vw, 110px);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.speak-emoji.bounce-jump { animation: bounceJump 0.8s ease; }
+@keyframes bounceJump {
+  0% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-28px) scale(1.06); }
+  45% { transform: translateY(0) scale(0.97); }
+  65% { transform: translateY(-12px) scale(1.03); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.mic-icon {
+  font-size: 44px;
+  margin-bottom: 6px;
+}
+.mic-icon.listening { animation: pulse 0.7s ease infinite; }
+
+.speak-prompt-sub {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin: 0;
+}
+.speak-prompt-word {
+  font-size: clamp(30px, 9vw, 44px);
+  font-weight: 900;
+  color: var(--pink);
+  letter-spacing: 1px;
+  margin: 2px 0 10px;
+}
+
+.mic-status {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--green);
+  min-height: 26px;
+  text-align: center;
+  margin: 4px 0 18px;
+}
+
+.speak-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.skip-btn {
+  margin-top: 18px;
+  background: transparent;
+  color: #b3a7bd;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.skip-btn:active { opacity: 0.6; }
 
 /* ===================== Result ===================== */
 .result-wrap {

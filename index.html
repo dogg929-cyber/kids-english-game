@@ -66,20 +66,36 @@
   </div>
 </section>
 
-<!-- ===================== クイズ画面 ===================== -->
+<!-- ===================== クイズ画面（きく→えらぶ→はなす） ===================== -->
 <section id="screen-quiz" class="screen">
   <button class="back-btn" data-target="screen-home">← もどる</button>
+  <div class="quiz-score-badge">⭐️ <span id="quiz-score">0</span></div>
 
   <div class="quiz-wrap">
-    <div class="quiz-header">
-      <button id="quiz-replay-btn" class="quiz-replay-btn">🔊 きいてね</button>
-      <div class="quiz-score">⭐️ <span id="quiz-score">0</span></div>
+
+    <!-- フェーズ1: えいごをきいて、えをえらぶ -->
+    <div id="quiz-question-phase" class="quiz-phase">
+      <button id="quiz-replay-btn" class="quiz-replay-btn">🔊 もういちど きく</button>
+      <p class="quiz-question-en" id="quiz-question-en">Where is the elephant?</p>
+      <p class="quiz-question-jp" id="quiz-question-jp">ぞうさんはどこ？</p>
+      <div id="quiz-options" class="quiz-options"></div>
     </div>
 
-    <div id="quiz-options" class="quiz-options"></div>
-  </div>
+    <!-- フェーズ2: じぶんではなしてみよう -->
+    <div id="quiz-speak-phase" class="quiz-phase" hidden>
+      <div class="speak-emoji" id="speak-phase-emoji">🐘</div>
+      <div class="mic-icon" id="mic-icon">🎤</div>
+      <p class="speak-prompt-sub">Can you say</p>
+      <p class="speak-prompt-word" id="speak-target-word">ELEPHANT</p>
+      <p class="mic-status" id="mic-status">きいているよ…</p>
 
-  <div id="quiz-feedback" class="quiz-feedback"></div>
+      <div class="speak-actions">
+        <button id="hear-example-btn" class="quiz-replay-btn">🔊 おてほんを きく</button>
+      </div>
+      <button id="skip-btn" class="skip-btn">つぎへ →</button>
+    </div>
+
+  </div>
 </section>
 
 <!-- ===================== 結果画面 ===================== -->
@@ -95,6 +111,7 @@
 
 <div id="confetti-layer" aria-hidden="true"></div>
 
+<script src="speech.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
