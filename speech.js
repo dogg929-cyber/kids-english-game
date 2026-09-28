@@ -66,18 +66,33 @@
    * @param {string} text 読み上げるテキスト（英語）
    * @param {{rate?:number, pitch?:number, onStart?:Function, onEnd?:Function}} [opts]
    */
+  // 英語の読み上げ中はBGMを邪魔にならない音量までduckし、終わったら戻す。
+  // audio.js が読み込まれていない/まだ無い場合でも壊れないよう、
+  // window.audioManager がある時だけ呼び出す（speech.jsはaudio.jsに依存しない）。
+  function duckBgmForSpeech() {
+    if (window.audioManager) window.audioManager.duck("speech");
+  }
+  function unduckBgmForSpeech() {
+    if (window.audioManager) window.audioManager.unduck("speech");
+  }
+
   function speak(text, opts = {}) {
     const { rate = 0.8, pitch = 1.15, onStart, onEnd } = opts;
 
     if (!window.speechSynthesis) {
       // 音声合成が使えない環境向けのフォールバック：
       // 何も話さないが、時間経過だけはシミュレートして呼び出し元を進める。
+      duckBgmForSpeech();
       if (onStart) onStart();
-      setTimeout(() => onEnd && onEnd(), 400);
+      setTimeout(() => {
+        unduckBgmForSpeech();
+        onEnd && onEnd();
+      }, 400);
       return;
     }
 
     cancelSpeaking();
+    duckBgmForSpeech();
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "en-US";
     utter.rate = rate;
@@ -85,8 +100,14 @@
     const voice = pickEnglishVoice();
     if (voice) utter.voice = voice;
     if (onStart) utter.onstart = onStart;
-    utter.onend = () => onEnd && onEnd();
-    utter.onerror = () => onEnd && onEnd();
+    utter.onend = () => {
+      unduckBgmForSpeech();
+      onEnd && onEnd();
+    };
+    utter.onerror = () => {
+      unduckBgmForSpeech();
+      onEnd && onEnd();
+    };
     window.speechSynthesis.speak(utter);
   }
 
@@ -162,6 +183,9 @@
     }, timeoutMs);
 
     recognition.onstart = () => {
+      // マイクで子どもの発音を認識している間は、BGMを完全にmute（子どもの声の
+      // 認識を最優先する）。onendで必ず解除する。
+      if (window.audioManager) window.audioManager.duck("mic");
       if (onStart) onStart();
     };
 
@@ -201,6 +225,7 @@
     recognition.onend = () => {
       clearTimeout(timeoutId);
       currentRecognition = null;
+      if (window.audioManager) window.audioManager.unduck("mic");
       if (onEnd) onEnd();
     };
 

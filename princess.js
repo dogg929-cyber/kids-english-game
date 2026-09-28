@@ -145,13 +145,14 @@
     {
       id: "feet",
       en: "feet",
-      // legs（あしは どこ？）とjpが同じにならないよう、実際のhotspot位置
-      // （くつ）に合わせた自然な言い方にする。
-      jp: "くつは どこ？",
+      // legs = 脚（jp表示は「あしは どこ？」）、feet = 足、という意味関係を
+      // 保つため、feetは靴（英語のshoesと混同する表現）ではなく漢字の
+      // 「足」を使って表示を分ける（幼児語は使わず、legsとも文言を分ける）。
+      jp: "足は どこ？",
       plural: true,
       hotspots: [
-        { left: 31, top: 89, width: 16, height: 10 }, // 左あし（くつ）
-        { left: 56, top: 89, width: 17, height: 9 }, // 右あし（くつ）
+        { left: 31, top: 89, width: 16, height: 10 }, // 左あし（足）
+        { left: 56, top: 89, width: 17, height: 9 }, // 右あし（足）
       ],
     },
   ];
@@ -237,6 +238,7 @@
   const princessAgainBtn = document.getElementById("princess-again-btn");
   const princessHomeBtn = document.getElementById("princess-home-btn");
   const princessStartBtn = document.getElementById("princess-start-btn");
+  const princessMusicBtn = document.getElementById("princess-music-btn");
 
   if (!princessStageEl || !princessStartBtn) return;
 
@@ -267,6 +269,16 @@
     playPrincessTone(659.25, 0.13);
     setTimeout(() => playPrincessTone(783.99, 0.13), 110);
     setTimeout(() => playPrincessTone(987.77, 0.2), 220);
+  }
+  // audio.js（assets/audio/correct.mp3）が未配置/再生失敗の場合の代替演出として、
+  // 既存の合成音（WebAudioの簡易チャイム）をそのまま使う。
+  if (window.audioManager) {
+    window.audioManager.registerFallback("correct", playPrincessCorrectSound);
+  }
+
+  /** BGM/SFXをまとめて鳴らす薄いヘルパー。audio.jsが無い環境でも安全に無視する。 */
+  function playAudioSfx(name) {
+    if (window.audioManager) window.audioManager.playSfx(name);
   }
 
   /**
@@ -513,6 +525,9 @@
    * 上に出す。translateXで横にスライドするような動きは一切使わない。
    */
   function playGreatJobCelebration() {
+    // MINI DANCEはBGMを止めず（duckしない）、短いsparkle SFXだけを添える。
+    playAudioSfx("sparkle");
+
     // reduced motionではミニダンス自体を無効化する（CSS側の保険だけでなく、
     // クラス付与自体をJS側でもスキップして、他の動きクラスと同じ方針に揃える）。
     if (princessSpeakPortraitEl && !prefersReducedMotion()) {
@@ -691,7 +706,34 @@
     askNextPrincessQuestion();
   }
 
-  princessStartBtn.addEventListener("click", () => startPrincessGame());
+  princessStartBtn.addEventListener("click", () => {
+    // iPhone Safariのautoplay制限対策：ユーザー操作(このタップ)を起点に
+    // BGMの再生を解禁する。必ずクリックハンドラの先頭・同期的に呼ぶこと。
+    if (window.audioManager) window.audioManager.unlock();
+    playAudioSfx("play");
+    startPrincessGame();
+  });
+
+  /* ===================== 🎵 BGM ON/OFFボタン（GAME HUD） ===================== */
+  // 質問読み上げ用の🔊（question card内）とは見た目・位置・役割を分ける。
+  // ON/OFFはaudio.js側でlocalStorageに保存されるので、ここではアイコン表示の
+  // 同期とタップ操作だけを扱う。
+  function syncPrincessMusicBtn() {
+    if (!princessMusicBtn || !window.audioManager) return;
+    const on = window.audioManager.isBgmEnabled();
+    princessMusicBtn.textContent = on ? "🎵" : "🔇";
+    princessMusicBtn.setAttribute("aria-label", on ? "BGM オフにする" : "BGM オンにする");
+    princessMusicBtn.classList.toggle("is-muted", !on);
+  }
+  if (princessMusicBtn) {
+    syncPrincessMusicBtn();
+    princessMusicBtn.addEventListener("click", () => {
+      if (!window.audioManager) return;
+      // 音楽ボタン自体のタップもユーザー操作なので、OFF→ONの際はここから再生してよい。
+      window.audioManager.setBgmEnabled(!window.audioManager.isBgmEnabled());
+      syncPrincessMusicBtn();
+    });
+  }
 
   /* ===================== フェーズ1: きいて、さがす ===================== */
 
@@ -763,7 +805,7 @@
     // 正解！
     princess.awaitingPick = false;
     playPrincessCorrectReaction(target, hotspotEl);
-    playPrincessCorrectSound();
+    playAudioSfx("correct"); // 音源が無ければ既存の合成音（playPrincessCorrectSound）にフォールバック
 
     Speech.speak(`${capitalize(target.en)}!`, {
       onEnd: () => enterPrincessSpeakPhase(target),
@@ -802,6 +844,7 @@
       refSize = 40;
     }
     spawnMissRipple(cx, cy, refSize);
+    playAudioSfx("wrong"); // ブザーではなく、ごく軽い「ぽっ」程度。Try again!の邪魔をしない音量。
     Speech.speak("Try again!");
   }
 
@@ -976,6 +1019,11 @@
     princessAgainBtn.hidden = true;
     princessHomeBtn.hidden = true;
 
+    // 10問クリア演出：通常BGMをduck → clear fanfare → SPECIAL DANCE →
+    // （このsetTimeoutの中で）自然に通常BGMへ戻す。
+    if (window.audioManager) window.audioManager.duck("clear");
+    playAudioSfx("clear");
+
     Speech.speak("You did it!");
 
     const reduced = prefersReducedMotion();
@@ -997,6 +1045,7 @@
       princessRoundSubEl.hidden = false;
       princessAgainBtn.hidden = false;
       princessHomeBtn.hidden = false;
+      if (window.audioManager) window.audioManager.unduck("clear"); // 通常BGMへ自然に戻す
       Speech.speak("Great job!");
     }, reduced ? SPECIAL_DANCE_REDUCED_MS : SPECIAL_DANCE_MS);
   }

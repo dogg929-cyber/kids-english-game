@@ -159,10 +159,12 @@
 
 <!-- ===================== Princess English（プリンセスの からだ さがしゲーム） ===================== -->
 <section id="screen-princess" class="screen princess-screen">
-  <!-- ゲームらしい小さなHUD：左にHOME（アイコンのみ）、右に「今の進行」を
-       ⭐ 3 / 10のように表示（採点競争ではなく、あと何問かを示す用途）。 -->
+  <!-- ゲームらしい小さなHUD：左にHOME（アイコンのみ）、中央にBGM ON/OFF、
+       右に「今の進行」を ⭐ 3 / 10のように表示（採点競争ではなく、あと何問かを示す用途）。
+       BGMボタンは、質問読み上げ用の🔊（question card内）とは見た目・位置を分けている。 -->
   <div class="princess-hud">
     <button class="back-btn princess-home-btn" data-target="screen-home" aria-label="ホームへ もどる">🏠</button>
+    <button id="princess-music-btn" class="princess-music-btn" aria-label="BGM オン/オフ">🎵</button>
     <div class="princess-progress-badge">⭐ <span id="princess-score">0</span><span class="princess-progress-total"> / 10</span></div>
   </div>
 
@@ -380,6 +382,7 @@
 <div id="confetti-layer" aria-hidden="true"></div>
 
 <script src="speech.js"></script>
+<script src="audio.js"></script>
 <script src="app.js"></script>
 <script src="zoo.js"></script>
 <script src="princess.js"></script>

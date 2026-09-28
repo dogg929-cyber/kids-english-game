@@ -1183,6 +1183,33 @@ button {
   transform: scale(0.88);
   box-shadow: 0 2px 0 var(--ps-shadow-soft), 0 3px 6px var(--ps-shadow-soft);
 }
+/* BGM ON/OFFボタン：HOMEアイコンとも質問読み上げ🔊とも見た目・位置を分ける。
+   HUD中央に置くことで、左右のボタンから離れ子どもが誤タップしにくい。
+   タップ領域は44px以上を確保。 */
+.princess-music-btn {
+  position: static;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(150deg, #FFFFFF, var(--ps-cream));
+  color: var(--ps-pink-deep);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 0 var(--ps-shadow-soft), 0 6px 10px var(--ps-shadow-soft);
+  transition: transform 0.1s ease;
+}
+.princess-music-btn:active {
+  transform: scale(0.88);
+  box-shadow: 0 2px 0 var(--ps-shadow-soft), 0 3px 6px var(--ps-shadow-soft);
+}
+.princess-music-btn.is-muted {
+  color: var(--ps-text-soft);
+  opacity: 0.85;
+}
 .princess-progress-badge {
   display: flex;
   align-items: center;
