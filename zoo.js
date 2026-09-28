@@ -74,6 +74,7 @@
     score: 0,
     awaitingPick: true, // タップを受け付けてよい状態か
     pendingAnimal: null, // 発音練習フェーズの対象
+    autoSpokenIndex: -1, // 自動読み上げ済みの問題番号（同じ問題を自動で2回読まないための保証）
   };
 
   /* ===================== DOM参照 ===================== */
@@ -194,6 +195,7 @@
     zoo.score = 0;
     zoo.awaitingPick = true;
     zoo.pendingAnimal = null;
+    zoo.autoSpokenIndex = -1;
 
     zooScoreEl.textContent = "0";
     zooSpeakOverlay.hidden = true;
@@ -264,7 +266,19 @@
     zooQuestionEnEl.textContent = `Where is the ${target.en}?`;
     zooQuestionJpEl.textContent = `${target.jp}はどこ？`;
 
-    setTimeout(() => speakZooQuestion(target), 250);
+    // この問題番号に対する自動読み上げは1回だけ、という状態ベースの保証。
+    // askNextZooQuestion() が何らかの理由で同じ問題番号に対して再度呼ばれても
+    // （例: 将来のコード変更でイベントが重複した場合など）、
+    // 同じ問題を自動で二重に読み上げることはない。
+    // 「🔊 もういちど」ボタン（speakZooQuestionを直接呼ぶ）はこのガードの対象外なので、
+    // 子どもは何回でも聞き直せる。
+    const questionIndex = zoo.currentIndex;
+    setTimeout(() => {
+      if (zoo.currentIndex !== questionIndex) return; // 既に次の問題へ進んでいた
+      if (zoo.autoSpokenIndex === questionIndex) return; // この問題は自動読み上げ済み
+      zoo.autoSpokenIndex = questionIndex;
+      speakZooQuestion(target);
+    }, 250);
   }
 
   function speakZooQuestion(target) {

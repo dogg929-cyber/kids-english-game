@@ -50,7 +50,15 @@
   }
 
   function cancelSpeaking() {
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (!window.speechSynthesis) return;
+    // 何も話していない（＝アイドル）状態でも speechSynthesis.cancel() を呼ぶと、
+    // 一部のブラウザ（特にiOS SafariのWebKit実装）で、直後に speak() した
+    // 発話が内部的に二重に再生されてしまう既知の不安定挙動がある。
+    // 「本当に何か話している/話す予定がある時だけ止める」ことで、
+    // 不要な cancel() 呼び出しそのものをなくし、この不具合の引き金を断つ。
+    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      window.speechSynthesis.cancel();
+    }
   }
 
   /**
