@@ -26,9 +26,12 @@
 
   /* ===================== 設定：見た目と当たり判定 ===================== */
   const PRINCESS_CONFIG = {
-    // 将来ここにPNG/WebPのパスを設定すると、SVGの代わりに<img>で表示される。
-    // 例: imageSrc: "assets/princess-v2.webp"
-    imageSrc: null,
+    // Princess Englishの正式イラスト（実写ベースのプリンセス画像）。
+    // 縦横比は 1024×1536（2:3）。差し替える場合はここのパスと、下の
+    // PRINCESS_BODY_PARTS の各 hotspots の%座標を新しい画像に合わせて
+    // 調整するだけでよい。
+    imageSrc: "assets/princess.webp",
+    imageAspect: "1024 / 1536",
   };
 
   /*
@@ -45,15 +48,16 @@
       // 「head」は顔全体を覆う1つの大きな四角形にしない。目・鼻・口・耳・髪の
       // 領域と重なると、それらのDOM要素（headより後に描画される）に常に
       // タップを奪われてしまい、headだけが絶対に押せなくなるバグになるため
-      // （実機テストで発見）、他パーツと重ならない「おでこ」と「あご」の
-      // 2つの帯だけをheadの当たり判定として使う。
+      // （実機テストで発見）、他パーツと重ならない「ほほ（左右）」と「あご」を
+      // headの当たり判定として使う。
       id: "head",
       en: "head",
       jp: "あたまは どこ？",
       plural: false,
       hotspots: [
-        { left: 35, top: 14, width: 30, height: 5 }, // おでこ（前髪の下、目の上）
-        { left: 40, top: 38, width: 20, height: 5 }, // あご（口の下）
+        { left: 35, top: 17, width: 6, height: 11 }, // 左ほほ
+        { left: 60, top: 17, width: 6, height: 11 }, // 右ほほ
+        { left: 43, top: 29, width: 14, height: 6 }, // あご
       ],
     },
     {
@@ -62,9 +66,11 @@
       jp: "かみのけは どこ？",
       plural: false,
       hotspots: [
-        { left: 24, top: 6, width: 52, height: 7 },
-        { left: 14, top: 13, width: 12, height: 20 },
-        { left: 74, top: 13, width: 12, height: 20 },
+        { left: 30, top: 8, width: 40, height: 9 }, // 前髪
+        { left: 17, top: 17, width: 10, height: 12 }, // 左：もみあげ
+        { left: 28, top: 29, width: 14, height: 16 }, // 左：肩にかかる髪
+        { left: 74, top: 17, width: 10, height: 12 }, // 右：もみあげ
+        { left: 58, top: 29, width: 14, height: 16 }, // 右：肩にかかる髪
       ],
     },
     {
@@ -73,8 +79,8 @@
       jp: "めは どこ？",
       plural: true,
       hotspots: [
-        { left: 36, top: 20, width: 9, height: 8 },
-        { left: 55, top: 20, width: 9, height: 8 },
+        { left: 41, top: 17, width: 5, height: 4 },
+        { left: 55, top: 17, width: 5, height: 4 },
       ],
     },
     {
@@ -83,8 +89,8 @@
       jp: "みみは どこ？",
       plural: true,
       hotspots: [
-        { left: 26, top: 21, width: 8, height: 9 },
-        { left: 66, top: 21, width: 8, height: 9 },
+        { left: 27, top: 19, width: 8, height: 10 },
+        { left: 66, top: 19, width: 8, height: 10 },
       ],
     },
     {
@@ -92,14 +98,14 @@
       en: "nose",
       jp: "はなは どこ？",
       plural: false,
-      hotspots: [{ left: 46, top: 23, width: 8, height: 7 }],
+      hotspots: [{ left: 47, top: 21, width: 7, height: 3 }],
     },
     {
       id: "mouth",
       en: "mouth",
       jp: "くちは どこ？",
       plural: false,
-      hotspots: [{ left: 41, top: 31, width: 18, height: 6 }],
+      hotspots: [{ left: 44, top: 25, width: 10, height: 3 }],
     },
     {
       id: "hands",
@@ -107,8 +113,8 @@
       jp: "てはどこ？",
       plural: true,
       hotspots: [
-        { left: 12, top: 54, width: 18, height: 7 },
-        { left: 70, top: 54, width: 18, height: 7 },
+        { left: 9, top: 42, width: 13, height: 12 }, // 左手
+        { left: 83, top: 46, width: 16, height: 6 }, // 右手
       ],
     },
     {
@@ -117,8 +123,8 @@
       jp: "ゆびは どこ？",
       plural: true,
       hotspots: [
-        { left: 13, top: 61, width: 17, height: 7 },
-        { left: 70, top: 61, width: 17, height: 7 },
+        { left: 0, top: 47, width: 9, height: 11 }, // 左ゆび
+        { left: 85, top: 40, width: 15, height: 6 }, // 右ゆび
       ],
     },
     {
@@ -126,14 +132,20 @@
       en: "legs",
       jp: "あしは どこ？",
       plural: true,
-      hotspots: [{ left: 39, top: 83, width: 22, height: 8 }],
+      hotspots: [
+        { left: 38, top: 82, width: 7, height: 5 }, // 左あし
+        { left: 57, top: 82, width: 8, height: 5 }, // 右あし
+      ],
     },
     {
       id: "feet",
       en: "feet",
       jp: "あんよは どこ？",
       plural: true,
-      hotspots: [{ left: 32, top: 92, width: 36, height: 10 }],
+      hotspots: [
+        { left: 31, top: 89, width: 16, height: 10 }, // 左あんよ
+        { left: 56, top: 89, width: 17, height: 9 }, // 右あんよ
+      ],
     },
   ];
 

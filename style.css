@@ -828,14 +828,23 @@ button {
      見出しに合わせて少し中央寄せの余白を調整 */
 }
 
-/* ---------- プリンセス本体（現在は仮のSVGイラスト） ---------- */
+/* ---------- プリンセス本体 ----------
+ * 正式イラスト（実写ベース、1024×1536 = 2:3）を縦横比を保ったまま
+ * iPhone縦画面でできるだけ大きく表示する。
+ * ステージ自体の width/height を画像と同じ 2:3 の比率に固定するため、
+ * 当たり判定（#princess-hotspots の%座標）は常に画像のピクセル位置と
+ * ずれずに一致する（object-fit等でレターボックスされないので安全）。
+ * width は「横幅いっぱい」「使える高さいっぱい」「上限340px」のうち
+ * 最も小さい値を採用し、常に収まる最大サイズになるようにしている。
+ */
 .princess-stage {
   position: absolute;
   left: 50%;
-  top: 152px;
-  bottom: 14%;
+  top: 150px;
   transform: translateX(-50%);
-  width: min(84%, 340px);
+  width: min(90vw, calc((100vh - 150px - 36px) * 1024 / 1536), 420px);
+  width: min(90vw, calc((100dvh - 150px - 36px) * 1024 / 1536), 420px);
+  aspect-ratio: 1024 / 1536;
   z-index: 2;
 }
 
@@ -844,6 +853,7 @@ button {
   width: 100%;
   height: 100%;
   display: block;
+  object-fit: contain;
   filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.12));
 }
 
