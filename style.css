@@ -371,6 +371,73 @@ button {
   .home-princess-frame { max-height: 38vh; }
 }
 
+/* ---------- Princess World：ゲーム選択（BODY PARTS / DRESS UP） ---------- */
+/* 2ゲーム分のカードを置くスペースを確保するため、タイトルとプリンセスを
+   PLAYボタン単独だった頃より一回り小さくする（世界観・配色はそのまま）。 */
+.home-title-compact { font-size: clamp(24px, 8.6vw, 34px); }
+.home-princess-frame-compact {
+  width: min(50vw, 210px);
+  max-height: 26vh;
+}
+@media (max-height: 700px) {
+  .home-princess-frame-compact { max-height: 22vh; }
+}
+
+.home-game-cards {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 400px;
+  margin: 2px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 大きなタップ領域・絵文字アイコン優先（文字は最小限）のゲームカード。
+   PLAYボタンと同じ ps-btn-3d の立体プレス感（沈む・影が縮む）を再利用し、
+   ゲームごとに --ps-btn-edge とグラデーションだけ変えて見た目を分ける。 */
+.home-game-card {
+  width: 100%;
+  min-height: 84px;
+  border-radius: var(--ps-radius-l);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+.home-game-card-icon {
+  flex: 0 0 auto;
+  font-size: 42px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
+}
+.home-game-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.home-game-card-title {
+  font-size: clamp(18px, 5.6vw, 22px);
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-shadow: 1px 2px 2px rgba(0, 0, 0, 0.12);
+}
+.home-game-card-sub {
+  font-size: clamp(12px, 3.4vw, 14px);
+  font-weight: 700;
+  opacity: 0.92;
+}
+.home-game-card-bodyparts {
+  --ps-btn-edge: var(--ps-lavender-deep);
+  background: linear-gradient(135deg, var(--ps-lavender) 0%, var(--ps-lavender-deep) 100%);
+}
+.home-game-card-dressup {
+  --ps-btn-edge: var(--ps-pink-deep);
+  background: linear-gradient(135deg, var(--ps-pink) 0%, var(--ps-pink-deep) 100%);
+}
+
 /* ===================== Home（旧レイアウト用、非表示のカテゴリー等に残置） ===================== */
 .title {
   font-size: clamp(28px, 8vw, 40px);
@@ -1716,3 +1783,158 @@ button {
   }
 }
 /* prefers-reduced-motion時はJS側で紙吹雪自体を生成しない。 */
+
+/* =====================================================================
+ * Dress Up（きいて・えらんで・はなす きせかえゲーム）
+ * HUD・question card・MAGIC SPEAK CARD・寸法などはPrincess Englishと
+ * 同じクラスをそのまま再利用しているため、ここではDress Up専用の
+ * 「プレビュー＋Look Badges」と「3択カード」だけを追加する。
+ * ===================================================================== */
+.screen.dressup-screen { padding: 0; overflow: hidden; }
+.dressup-screen.active { display: block; }
+
+.dressup-category-label {
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 4px 14px;
+  border-radius: var(--ps-radius-pill);
+  background: linear-gradient(135deg, var(--ps-lavender) 0%, var(--ps-pink) 100%);
+  color: var(--ps-text-on-color);
+  font-size: clamp(12px, 3.6vw, 14px);
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+/* ---------- プリンセスのプレビュー ---------- */
+.dressup-preview-stage {
+  position: relative;
+  z-index: 2;
+  margin: 14px auto 0;
+  width: min(46vw, 190px);
+}
+.dressup-preview-img {
+  width: 100%;
+  aspect-ratio: 1024 / 1536;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 10px 14px rgba(154, 100, 160, 0.25));
+}
+/* 正解時のsparkle等を出すための透明レイヤー（Princess Englishの
+   #princess-fx-layerと同じ役割）。プレビュー画像の上に重ねるだけで、
+   タップ判定には一切影響しない。 */
+.dressup-preview-stage .princess-fx-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 3;
+}
+
+/* Look Badges：画像素材が無い間、「今どこまで着せ替えたか」をプレビュー下の
+   小さな絵文字バッジで示す（is-doneで達成、is-activeで今のカテゴリーを示す）。 */
+.dressup-look-badges {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px auto 0;
+}
+.dressup-look-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  background: var(--ps-card-bg);
+  border: 2px solid var(--ps-card-border);
+  box-shadow: 0 2px 0 var(--ps-shadow-soft);
+  opacity: 0.55;
+  transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.dressup-look-badge.is-active {
+  opacity: 1;
+  border-color: var(--ps-gold-deep);
+  background: linear-gradient(150deg, #FFF3D6, var(--ps-cream));
+}
+.dressup-look-badge.is-done {
+  opacity: 1;
+  border-color: var(--ps-gold-deep);
+  background: linear-gradient(150deg, #FFE29A, var(--ps-gold));
+  transform: scale(1.08);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dressup-look-badge.is-active { animation: dressup-badge-pulse 1.4s ease-in-out infinite; }
+  @keyframes dressup-badge-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dressup-look-badge.is-active { animation: none; }
+}
+
+/* ---------- 3択カード ---------- */
+.dressup-choices {
+  position: relative;
+  z-index: 2;
+  margin: 16px auto 0;
+  width: min(94vw, 400px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+/* 画像素材がまだ無いため、「色スウォッチ＋絵文字＋大きな英単語」で構成した
+   分かりやすい仮カード。将来サムネイル画像に差し替える場合もこのクラスの
+   中身をJS側で差し替えるだけでよい（レイアウトはそのまま使える）。 */
+.dressup-option-card {
+  min-height: 104px;
+  padding: 10px 6px 8px;
+  border-radius: var(--ps-radius-m);
+  background: var(--ps-card-bg);
+  border: 2px solid var(--ps-card-border);
+  box-shadow: 0 4px 0 var(--ps-shadow-soft), 0 6px 10px var(--ps-shadow-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.dressup-option-card:active {
+  transform: scale(0.94) translateY(2px);
+  box-shadow: 0 2px 0 var(--ps-shadow-soft), 0 3px 6px var(--ps-shadow-soft);
+}
+.dressup-option-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+.dressup-option-label {
+  font-size: clamp(12px, 3.6vw, 14px);
+  font-weight: 900;
+  color: var(--ps-text);
+  line-height: 1.15;
+}
+
+/* 正解タップ時：カードがふわっと弾む（translateXの横スライドは使わない）。 */
+.dressup-option-card.dressup-correct-pop {
+  animation: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dressup-option-card.dressup-correct-pop { animation: dressup-correct-pop 0.5s ease; }
+  @keyframes dressup-correct-pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+}

@@ -31,15 +31,16 @@
 
   <div class="home-wrap">
     <div class="home-titles">
-      <h1 class="home-title">PRINCESS<br>ENGLISH</h1>
-      <p class="home-tagline">Play <span class="home-tagline-dot">•</span> Listen <span class="home-tagline-dot">•</span> Speak</p>
+      <h1 class="home-title home-title-compact">PRINCESS<br>ENGLISH</h1>
+      <p class="home-tagline">Choose a game <span class="home-tagline-dot">•</span> Play!</p>
     </div>
 
     <!-- プリンセス本体：ゲーム内の「全身を小さく引きで見せる」表示ではなく、
          顔〜ドレス上部が大きく魅力的に見えるフレーミング（object-position）で
          トリミング表示する。ゲーム内のhotspot座標系とは完全に独立しているため、
-         ここでの見た目調整はゲームプレイに一切影響しない。 -->
-    <div class="home-princess-frame">
+         ここでの見た目調整はゲームプレイに一切影響しない。2つのゲームカードを
+         置くスペースを確保するため、PLAYボタン単独だった頃より少し小さく表示する。 -->
+    <div class="home-princess-frame home-princess-frame-compact">
       <div class="home-princess-glow" aria-hidden="true"></div>
       <span class="home-deco home-deco-star1">⭐</span>
       <span class="home-deco home-deco-heart1">💗</span>
@@ -48,13 +49,29 @@
       <img class="home-princess-img" src="assets/princess.webp" alt="Princess" draggable="false" />
     </div>
 
-    <!-- Princess English：ホーム画面唯一のゲーム入口。ゲーム機のボタンのように
-         上面＋濃い下側＋soft shadowで立体的にし、押すと沈むmicro interaction
-         を付ける。押すまでは一切音を鳴らさない（Safariの自動再生制限対策も兼ねる）。 -->
-    <button id="princess-start-btn" class="home-play-btn ps-btn-3d">
-      <span class="home-play-icon">▶</span>
-      <span class="home-play-label">PLAY</span>
-    </button>
+    <!-- Princess World：ゲーム選択画面。2〜5さい向けに文字より絵（絵文字アイコン）を
+         大きくし、どちらを押せばいいか一目でわかる大きなカードを2枚だけ並べる。
+         押すと沈むmicro interactionはPLAYボタンと同じ ps-btn-3d を再利用。
+         押すまでは一切音を鳴らさない（Safariの自動再生制限対策も兼ねる）。 -->
+    <div class="home-game-cards">
+      <!-- id="princess-start-btn" は既存のBody Partsゲーム（princess.js）が
+           そのまま使っているIDなので変更しない（既存のクリックハンドラ・
+           既存テストを一切壊さないため）。見た目だけを新しいゲームカードに作り替える。 -->
+      <button id="princess-start-btn" class="home-game-card home-game-card-bodyparts ps-btn-3d">
+        <span class="home-game-card-icon">👸</span>
+        <span class="home-game-card-text">
+          <span class="home-game-card-title">BODY PARTS</span>
+          <span class="home-game-card-sub">Listen · Touch · Speak</span>
+        </span>
+      </button>
+      <button id="dressup-start-btn" class="home-game-card home-game-card-dressup ps-btn-3d">
+        <span class="home-game-card-icon">👗</span>
+        <span class="home-game-card-text">
+          <span class="home-game-card-title">DRESS UP</span>
+          <span class="home-game-card-sub">Listen · Choose · Speak</span>
+        </span>
+      </button>
+    </div>
 
     <!-- 以下は旧ゲーム（Animals/Colors/Fruits/Numbersのフラッシュカード、クイズ）。
          ゲームの方向性をPrincess Englishに統一したため、子ども向けホーム画面からは
@@ -321,6 +338,95 @@
   </div>
 </section>
 
+<!-- ===================== Dress Up（きいて・えらんで・はなす きせかえゲーム） =====================
+     Princess Englishの「からださがし」と同じ世界観・演出（HUD/question card/
+     MAGIC SPEAK CARD/mini dance/special dance/BGM duckingなど）を最大限
+     再利用しつつ、遊び方だけ「タップで探す」→「3択から選ぶ」に変えたゲーム。
+     現時点ではhair/crown/dress/shoes専用の画像素材（assets/dressup/配下）が
+     まだ無いため、プレビューはprincess.webpをそのまま使い、選択状態は
+     プレビュー下の小さなバッジ（Look Badges）だけに反映する。素材が揃い次第、
+     dressup.js の DRESSUP_ITEMS に画像パスを設定するだけで差し替えられる。 -->
+<section id="screen-dressup" class="screen dressup-screen">
+  <div class="princess-hud">
+    <button class="back-btn princess-home-btn" data-target="screen-home" aria-label="ホームへ もどる">🏠</button>
+    <button id="dressup-music-btn" class="princess-music-btn" aria-label="BGM オン/オフ">🎵</button>
+    <div class="princess-progress-badge">⭐ <span id="dressup-score">0</span><span class="princess-progress-total"> / 4</span></div>
+  </div>
+
+  <!-- 背景（Princess Englishと同じお城の庭。装飾のみ・タップ不可） -->
+  <div class="princess-scenery" aria-hidden="true">
+    <div class="princess-sun">☀️</div>
+    <span class="princess-cloud princess-cloud-1">☁️</span>
+    <span class="princess-cloud princess-cloud-2">☁️</span>
+    <div class="princess-castle">🏰</div>
+    <div class="princess-glow" aria-hidden="true"></div>
+    <div class="princess-bush princess-bush-left">🌳</div>
+    <div class="princess-bush princess-bush-right">🌳</div>
+    <div class="princess-flowers princess-flowers-left">🌷🌷🌷</div>
+    <div class="princess-flowers princess-flowers-right">🌷🌷🌷</div>
+    <span class="princess-particle princess-particle-1">✨</span>
+    <span class="princess-particle princess-particle-2">✨</span>
+    <div class="princess-grass"></div>
+  </div>
+
+  <!-- QUESTION CARD：Princess Englishと同じcream/gold borderの大きなカード。
+       上部に「今どのカテゴリー中か」を絵文字で（💇/👑/👗/👠）表示する。 -->
+  <div class="princess-question-card dressup-question-card">
+    <p class="dressup-category-label" id="dressup-category-label">💇 HAIR</p>
+    <p class="princess-question-en" id="dressup-question-en">Choose the ponytail!</p>
+    <button id="dressup-replay-btn" class="princess-replay-btn ps-btn-3d" aria-label="もういちど きく">🔊</button>
+    <p class="princess-question-jp" id="dressup-question-jp">ポニーテールは どれ？</p>
+  </div>
+
+  <!-- プリンセスのプレビュー（現在は画像素材が無いため、既存のprincess.webpを
+       そのまま表示。選ばれたカテゴリーはプレビュー下のLook Badgesで示す）。 -->
+  <div class="dressup-preview-stage">
+    <img class="dressup-preview-img" id="dressup-preview-img" src="assets/princess.webp" alt="Princess" draggable="false" />
+    <div id="dressup-fx-layer" class="princess-fx-layer" aria-hidden="true"></div>
+    <div class="dressup-look-badges" id="dressup-look-badges">
+      <span class="dressup-look-badge" data-cat="hair" aria-label="Hair">💇</span>
+      <span class="dressup-look-badge" data-cat="crown" aria-label="Crown">👑</span>
+      <span class="dressup-look-badge" data-cat="dress" aria-label="Dress">👗</span>
+      <span class="dressup-look-badge" data-cat="shoes" aria-label="Shoes">👠</span>
+    </div>
+  </div>
+
+  <!-- 3択カード（画像素材が無いので、色スウォッチ＋絵文字＋大きな英単語の
+       「分かりやすい仮カード」。dressup.js が DRESSUP_ITEMS からJSで生成する）。 -->
+  <div class="dressup-choices" id="dressup-choices"></div>
+
+  <!-- 発音練習オーバーレイ：Princess Englishと同じMAGIC SPEAK CARDを再利用。 -->
+  <div id="dressup-speak-overlay" class="zoo-speak-overlay princess-magic-overlay" hidden>
+    <div class="zoo-speak-card princess-magic-card">
+      <img class="princess-speak-portrait" id="dressup-speak-portrait" src="assets/princess.webp" alt="Princess" draggable="false" />
+      <p class="princess-speak-sub">Can you say</p>
+      <p class="princess-speak-word" id="dressup-speak-word">PONYTAIL</p>
+      <div class="princess-mic-wrap">
+        <span class="princess-mic-ring" id="dressup-mic-ring" aria-hidden="true"></span>
+        <div class="mic-icon princess-mic-btn ps-btn-3d" id="dressup-mic-icon" aria-hidden="true">🎤</div>
+      </div>
+      <p class="mic-status" id="dressup-mic-status"></p>
+      <div class="speak-actions">
+        <button id="dressup-hear-example-btn" class="princess-hear-btn ps-btn-3d">🔊 おてほんを きく</button>
+      </div>
+      <button id="dressup-skip-btn" class="skip-btn">つぎへ →</button>
+    </div>
+  </div>
+
+  <!-- 完成オーバーレイ：4カテゴリーすべて完成したら「YOU LOOK BEAUTIFUL!」→
+       SPECIAL DANCE（Princess Englishと同じCSSアニメーションを再利用）→
+       PLAY AGAIN / HOME。点数・ランキング・星評価は表示しない。 -->
+  <div id="dressup-complete" class="zoo-speak-overlay princess-magic-overlay" hidden>
+    <div class="zoo-speak-card princess-magic-card princess-result-card">
+      <p class="princess-you-did-it" id="dressup-you-did-it" hidden>✨ YOU LOOK BEAUTIFUL! ✨</p>
+      <img class="princess-round-portrait" id="dressup-round-portrait" src="assets/princess.webp" alt="Princess" draggable="false" />
+      <p class="princess-round-sub" id="dressup-round-sub" hidden>Great job! 🎉</p>
+      <button id="dressup-again-btn" class="princess-play-again-btn ps-btn-3d" hidden>▶ PLAY AGAIN</button>
+      <button id="dressup-home-btn" class="princess-result-home-btn" hidden>🏠</button>
+    </div>
+  </div>
+</section>
+
 <!-- ===================== Zoo Adventure（動物園さがしゲーム） ===================== -->
 <section id="screen-zoo" class="screen zoo-screen">
   <button class="back-btn" data-target="screen-home">← もどる</button>
@@ -386,5 +492,6 @@
 <script src="app.js"></script>
 <script src="zoo.js"></script>
 <script src="princess.js"></script>
+<script src="dressup.js"></script>
 </body>
 </html>
