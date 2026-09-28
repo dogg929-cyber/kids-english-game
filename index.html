@@ -18,13 +18,17 @@
     </h1>
     <p class="subtitle">Kids English Game — 2〜5さい向け</p>
 
-    <!-- Princess English：現在のメインゲーム。ホーム画面で一番目立つ位置に配置 -->
-    <button id="princess-start-btn" class="princess-launch-btn">
+    <!-- Princess English：現在ホーム画面唯一のゲーム入口 -->
+    <button id="princess-start-btn" class="princess-launch-btn princess-launch-btn-solo">
       <span class="princess-launch-emoji">👸</span>
-      <span class="princess-launch-text">プリンセスと あそぶ！<br><span class="en">Princess English</span></span>
+      <span class="princess-launch-text">プリンセスと えいごで あそぼう！<br><span class="en">Princess English</span></span>
     </button>
 
-    <div class="category-grid">
+    <!-- 以下は旧ゲーム（Animals/Colors/Fruits/Numbersのフラッシュカード、クイズ）。
+         ゲームの方向性をPrincess Englishに統一したため、子ども向けホーム画面からは
+         非表示にしている。コード・データは削除しておらず、hidden属性を外せば
+         いつでも復活できる。 -->
+    <div class="category-grid" hidden>
       <button class="cat-btn cat-animals" data-category="animals">
         <span class="cat-emoji">🐶</span>
         <span class="cat-label">どうぶつ<br><small>Animals</small></span>
@@ -43,7 +47,7 @@
       </button>
     </div>
 
-    <button id="quiz-start-btn" class="quiz-launch-btn">
+    <button id="quiz-start-btn" class="quiz-launch-btn" hidden>
       🎯 クイズであそぶ！ <span class="en">Quiz Time</span>
     </button>
 
