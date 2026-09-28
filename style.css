@@ -371,16 +371,16 @@ button {
   .home-princess-frame { max-height: 38vh; }
 }
 
-/* ---------- Princess World：ゲーム選択（BODY PARTS / DRESS UP） ---------- */
-/* 2ゲーム分のカードを置くスペースを確保するため、タイトルとプリンセスを
+/* ---------- Princess World：ゲーム選択（BODY PARTS / DRESS UP / MAGIC ARROWS） ---------- */
+/* 3ゲーム分のカードを置くスペースを確保するため、タイトルとプリンセスを
    PLAYボタン単独だった頃より一回り小さくする（世界観・配色はそのまま）。 */
-.home-title-compact { font-size: clamp(24px, 8.6vw, 34px); }
+.home-title-compact { font-size: clamp(22px, 7.6vw, 30px); }
 .home-princess-frame-compact {
-  width: min(50vw, 210px);
-  max-height: 26vh;
+  width: min(42vw, 175px);
+  max-height: 21vh;
 }
 @media (max-height: 700px) {
-  .home-princess-frame-compact { max-height: 22vh; }
+  .home-princess-frame-compact { max-height: 18vh; }
 }
 
 .home-game-cards {
@@ -390,26 +390,30 @@ button {
   margin: 2px auto 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 /* 大きなタップ領域・絵文字アイコン優先（文字は最小限）のゲームカード。
    PLAYボタンと同じ ps-btn-3d の立体プレス感（沈む・影が縮む）を再利用し、
-   ゲームごとに --ps-btn-edge とグラデーションだけ変えて見た目を分ける。 */
+   ゲームごとに --ps-btn-edge とグラデーションだけ変えて見た目を分ける。
+   3枚目のMAGIC ARROWS追加に合わせて、2枚時代よりひと回り詰めたサイズに
+   調整してある（390×844で3枚並べてもHOMEが窮屈にならないように）。 */
 .home-game-card {
   width: 100%;
-  min-height: 84px;
+  min-height: 72px;
   border-radius: var(--ps-radius-l);
-  padding: 12px 20px;
+  padding: 10px 18px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   text-align: left;
 }
 .home-game-card-icon {
   flex: 0 0 auto;
-  font-size: 42px;
+  width: 38px;
+  font-size: 34px;
   line-height: 1;
+  text-align: center;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
 }
 .home-game-card-text {
@@ -419,13 +423,13 @@ button {
   min-width: 0;
 }
 .home-game-card-title {
-  font-size: clamp(18px, 5.6vw, 22px);
+  font-size: clamp(16px, 5vw, 20px);
   font-weight: 900;
   letter-spacing: 0.5px;
   text-shadow: 1px 2px 2px rgba(0, 0, 0, 0.12);
 }
 .home-game-card-sub {
-  font-size: clamp(12px, 3.4vw, 14px);
+  font-size: clamp(11px, 3.1vw, 13px);
   font-weight: 700;
   opacity: 0.92;
 }
@@ -436,6 +440,42 @@ button {
 .home-game-card-dressup {
   --ps-btn-edge: var(--ps-pink-deep);
   background: linear-gradient(135deg, var(--ps-pink) 0%, var(--ps-pink-deep) 100%);
+}
+/* MAGIC ARROWS：紫→水色→ゴールドの魔法っぽいグラデーション。
+   カード内の矢印イラストは絵文字ではなくCSSのみで作った小さな2枚の
+   宝石タイル風デコレーション（外部画像は使用しない）。 */
+.home-game-card-arrows {
+  --ps-btn-edge: #4E9BCB;
+  background: linear-gradient(135deg, var(--ps-lavender) 0%, var(--ps-sky-deep) 55%, var(--ps-gold) 100%);
+}
+.home-game-card-icon-arrows {
+  position: relative;
+  width: 38px;
+  height: 34px;
+}
+.home-arrows-deco-tile {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
+}
+.home-arrows-deco-tile-a {
+  top: 0;
+  left: 0;
+  background: linear-gradient(160deg, #FFE29A, var(--ps-gold-deep));
+  transform: rotate(0deg);
+}
+.home-arrows-deco-tile-b {
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(160deg, #DCF1FF, var(--ps-sky-deep));
+  transform: rotate(90deg);
 }
 
 /* ===================== Home（旧レイアウト用、非表示のカテゴリー等に残置） ===================== */
@@ -2079,4 +2119,254 @@ button {
     40% { transform: scale(1.12); }
     100% { transform: scale(1); }
   }
+}
+
+/* =====================================================================
+ * MAGIC ARROWS（非言語のタップパズルゲーム）
+ * 英語学習・発音練習とは無関係。既存の .princess-hud / .princess-scenery /
+ * .zoo-speak-overlay / .princess-magic-overlay / .princess-magic-card /
+ * .princess-you-did-it / .princess-round-sub / .princess-play-again-btn /
+ * .princess-result-home-btn / .princess-fx-layer / .princess-sparkle /
+ * .princess-glow-ring / .princess-miss-ripple / .princess-confetti-piece を
+ * そのまま再利用し、盤面とタイル本体だけをこのセクションで新規に定義する。
+ * ===================================================================== */
+.screen.magic-arrows-screen { padding: 0; overflow: hidden; }
+.magic-arrows-screen.active { display: block; }
+
+.magic-arrows-scenery { background: linear-gradient(180deg, var(--ps-bg-top) 0%, #FFF3E3 35%, #E9F0FF 60%, #D8E9FF 100%); }
+
+.magic-arrows-hud-title {
+  margin: 0;
+  background: var(--ps-card-bg);
+  color: var(--ps-lavender-deep);
+  font-weight: 900;
+  font-size: clamp(12px, 3.6vw, 15px);
+  letter-spacing: 0.3px;
+  padding: 9px 14px;
+  border-radius: var(--ps-radius-pill);
+  box-shadow: 0 4px 0 var(--ps-shadow-soft), 0 6px 10px var(--ps-shadow-soft);
+  white-space: nowrap;
+}
+
+.magic-arrows-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2.2vh, 16px);
+  padding: 76px 16px 20px;
+}
+
+/* 残り矢印数：星やランキングではなく、小さな宝石ドットで視覚的にだけ伝える。 */
+.magic-arrows-remaining {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  gap: 5px;
+  max-width: 280px;
+  min-height: 12px;
+}
+.magic-arrows-remaining-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(150deg, #FFE9A8, var(--ps-gold-deep));
+  box-shadow: 0 1px 0 rgba(232, 163, 25, 0.45);
+}
+
+.magic-arrows-board-frame {
+  position: relative;
+  width: min(88vw, 380px);
+}
+
+.magic-arrows-board {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  grid-template-columns: repeat(var(--ma-grid, 3), 1fr);
+  grid-template-rows: repeat(var(--ma-grid, 3), 1fr);
+  gap: clamp(6px, 2vw, 11px);
+}
+
+.magic-arrows-fx-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* ---------- 魔法の宝石タイル本体 ---------- */
+.magic-arrow-tile {
+  position: relative;
+  border: none;
+  border-radius: var(--ps-radius-m);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.magic-arrow-tile:active { transform: scale(0.93); }
+
+.magic-arrow-tile-highlight {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 55%);
+  pointer-events: none;
+}
+
+.magic-arrow-glyph {
+  display: block;
+  line-height: 1;
+  font-size: clamp(24px, 9vw, 48px);
+  color: #fff;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+  transform-origin: center;
+  pointer-events: none;
+}
+/* 色と方向は無関係：方向は矢印グリフの回転だけで明確に判断できるようにする。 */
+.magic-arrow-tile.ma-dir-up .magic-arrow-glyph { transform: rotate(0deg); }
+.magic-arrow-tile.ma-dir-right .magic-arrow-glyph { transform: rotate(90deg); }
+.magic-arrow-tile.ma-dir-down .magic-arrow-glyph { transform: rotate(180deg); }
+.magic-arrow-tile.ma-dir-left .magic-arrow-glyph { transform: rotate(270deg); }
+
+/* 5色パレット。色と方向・意味は無関係（見た目のバリエーションのみ）。 */
+.ma-color-lavender { background: linear-gradient(160deg, #C9AEFF, var(--ps-lavender-deep)); box-shadow: 0 5px 0 #6E4FC4, 0 9px 14px var(--ps-shadow-soft); }
+.ma-color-pink { background: linear-gradient(160deg, #FFB7CE, var(--ps-pink-deep)); box-shadow: 0 5px 0 #C4436C, 0 9px 14px var(--ps-shadow-soft); }
+.ma-color-sky { background: linear-gradient(160deg, #DCF1FF, var(--ps-sky-deep)); box-shadow: 0 5px 0 #4E9BCB, 0 9px 14px var(--ps-shadow-soft); }
+.ma-color-gold { background: linear-gradient(160deg, #FFE9A8, var(--ps-gold-deep)); box-shadow: 0 5px 0 #B57F10, 0 9px 14px var(--ps-shadow-soft); }
+.ma-color-mint { background: linear-gradient(160deg, #C6F5DC, #4FBE8B); box-shadow: 0 5px 0 #2F8F63, 0 9px 14px var(--ps-shadow-soft); }
+
+/* ---------- 動かせる矢印：タップ→sparkle→加速して盤面の外へ ---------- */
+.magic-arrow-tile[class*="ma-exit-"] { z-index: 6; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .ma-exit-up { animation: ma-exit-up 0.45s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
+  .ma-exit-down { animation: ma-exit-down 0.45s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
+  .ma-exit-left { animation: ma-exit-left 0.45s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
+  .ma-exit-right { animation: ma-exit-right 0.45s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
+  @keyframes ma-exit-up {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    22% { transform: translateY(-6px) scale(1.1); opacity: 1; }
+    100% { transform: translateY(-140vh) scale(0.55); opacity: 0; }
+  }
+  @keyframes ma-exit-down {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    22% { transform: translateY(6px) scale(1.1); opacity: 1; }
+    100% { transform: translateY(140vh) scale(0.55); opacity: 0; }
+  }
+  @keyframes ma-exit-left {
+    0% { transform: translateX(0) scale(1); opacity: 1; }
+    22% { transform: translateX(-6px) scale(1.1); opacity: 1; }
+    100% { transform: translateX(-140vw) scale(0.55); opacity: 0; }
+  }
+  @keyframes ma-exit-right {
+    0% { transform: translateX(0) scale(1); opacity: 1; }
+    22% { transform: translateX(6px) scale(1.1); opacity: 1; }
+    100% { transform: translateX(140vw) scale(0.55); opacity: 0; }
+  }
+}
+/* reduced-motionでは長距離の飛行アニメーションを使わず、短いfade+shrinkだけに
+   短縮する。ただし「どの矢印が消えたか」は分かるよう、消える瞬間の演出は残す。 */
+@media (prefers-reduced-motion: reduce) {
+  .ma-exit-reduced { animation: ma-exit-fade-reduced 0.18s ease-in forwards; }
+  @keyframes ma-exit-fade-reduced {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0.7); opacity: 0; }
+  }
+}
+
+/* ---------- 動けない矢印：soft bump（激しいshake・赤色エラー表現は無し） ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .ma-blocked-bump { animation: ma-blocked-bump 0.3s ease; }
+  @keyframes ma-blocked-bump {
+    0% { transform: scale(1); }
+    45% { transform: scale(0.94); }
+    100% { transform: scale(1); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ma-blocked-bump { opacity: 0.82; }
+}
+
+.magic-arrows-ripple { border-color: rgba(255, 255, 255, 0.9); }
+
+/* ---------- 初回チュートリアル：LEVEL1開始時、最初に動かせる矢印だけを
+   2〜3回軽くpulseさせる。文章説明は一切表示しない。 ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .ma-tutorial-pulse { animation: ma-tutorial-pulse 0.75s ease-in-out 3; }
+  @keyframes ma-tutorial-pulse {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.1); filter: brightness(1.18); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ma-tutorial-pulse-reduced {
+    outline: 3px solid rgba(255, 255, 255, 0.85);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- レベルクリア演出：既存の.princess-magic-card等を土台に、
+   Princess本体のbounce+small danceだけ追加する。 ---------- */
+.magic-arrows-clear-card { position: relative; overflow: visible; }
+.magic-arrows-clear-princess {
+  width: 96px;
+  height: auto;
+  margin: 4px auto 8px;
+  display: block;
+  border-radius: var(--ps-radius-m);
+  filter: drop-shadow(0 8px 10px rgba(154, 100, 160, 0.25));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ma-clear-dance { animation: ma-clear-dance 0.9s ease; }
+  .ma-clear-dance-big { animation: ma-clear-dance-big 1.1s ease; }
+  @keyframes ma-clear-dance {
+    0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+    25% { transform: translateY(-10px) rotate(-6deg) scale(1.05); }
+    50% { transform: translateY(0) rotate(5deg) scale(1.08); }
+    75% { transform: translateY(-6px) rotate(-3deg) scale(1.04); }
+  }
+  @keyframes ma-clear-dance-big {
+    0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+    20% { transform: translateY(-14px) rotate(-8deg) scale(1.1); }
+    45% { transform: translateY(0) rotate(8deg) scale(1.14); }
+    70% { transform: translateY(-10px) rotate(-6deg) scale(1.1); }
+    90% { transform: translateY(-4px) rotate(3deg) scale(1.05); }
+  }
+}
+
+/* NEXT LEVEL（大）とPLAY AGAIN（小）を縦に並べる。LEVEL3クリア時は
+   NEXT LEVELをhiddenにし、PLAY AGAIN + HOMEだけを表示する。 */
+.magic-arrows-again-btn {
+  --ps-btn-edge: var(--ps-lavender-deep);
+  width: auto;
+  min-height: 0;
+  margin-top: 10px;
+  padding: 9px 22px;
+  border-radius: var(--ps-radius-pill);
+  background: linear-gradient(150deg, #FFFFFF, var(--ps-cream));
+  color: var(--ps-lavender-deep);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* ---------- レスポンシブ：390×844 / 375×667 のどちらでも横スクロール無し、
+   盤面が画面外へ切れない、クリア画面が画面内に収まることを最優先にする。 ---------- */
+@media (max-height: 700px) {
+  .magic-arrows-wrap { padding: 68px 14px 16px; }
+  .magic-arrows-board-frame { width: min(84vw, 320px); }
+}
+@media (max-width: 360px) {
+  .magic-arrows-board-frame { width: min(90vw, 300px); }
 }

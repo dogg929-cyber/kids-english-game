@@ -71,6 +71,18 @@
           <span class="home-game-card-sub">Listen · Choose · Speak</span>
         </span>
       </button>
+      <!-- MAGIC ARROWS：英語学習・発音練習とは無関係の、非言語のタップパズル。
+           カード内の矢印イラストはCSSのみで作った装飾（外部画像なし）。 -->
+      <button id="magic-arrows-start-btn" class="home-game-card home-game-card-arrows ps-btn-3d">
+        <span class="home-game-card-icon home-game-card-icon-arrows" aria-hidden="true">
+          <span class="home-arrows-deco-tile home-arrows-deco-tile-a">▲</span>
+          <span class="home-arrows-deco-tile home-arrows-deco-tile-b">▲</span>
+        </span>
+        <span class="home-game-card-text">
+          <span class="home-game-card-title">✨ MAGIC ARROWS</span>
+          <span class="home-game-card-sub">Tap · Swoosh · Play</span>
+        </span>
+      </button>
     </div>
 
     <!-- 以下は旧ゲーム（Animals/Colors/Fruits/Numbersのフラッシュカード、クイズ）。
@@ -453,6 +465,56 @@
   </div>
 </section>
 
+<!-- =====================================================================
+     MAGIC ARROWS：英語学習・発音練習とは完全に独立した、非言語のタップ
+     パズルゲーム。SpeechRecognition/SpeechSynthesisは一切使用しない。
+     盤面データ・判定ロジックはすべて magic-arrows.js 側にDOM非依存の
+     関数として実装されており、このHTMLはrender先のコンテナのみを持つ。
+     ===================================================================== -->
+<section id="screen-magic-arrows" class="screen magic-arrows-screen">
+  <div class="princess-hud">
+    <button class="back-btn princess-home-btn" data-target="screen-home" aria-label="ホームへ もどる">🏠</button>
+    <p class="magic-arrows-hud-title">✨ MAGIC ARROWS</p>
+    <div class="princess-progress-badge">LEVEL <span id="magic-arrows-level-num">1</span></div>
+  </div>
+
+  <!-- 背景（Princess Englishと同じお城の庭。装飾のみ・タップ不可） -->
+  <div class="princess-scenery magic-arrows-scenery" aria-hidden="true">
+    <div class="princess-sun">☀️</div>
+    <span class="princess-cloud princess-cloud-1">☁️</span>
+    <span class="princess-cloud princess-cloud-2">☁️</span>
+    <div class="princess-castle">🏰</div>
+    <div class="princess-glow" aria-hidden="true"></div>
+    <span class="princess-particle princess-particle-1">✨</span>
+    <span class="princess-particle princess-particle-2">✨</span>
+  </div>
+
+  <div class="magic-arrows-wrap">
+    <!-- 残り矢印数の視覚表示（星ではなく小さな宝石ドット。スコア/順位ではない）。 -->
+    <div class="magic-arrows-remaining" id="magic-arrows-remaining" aria-hidden="true"></div>
+
+    <!-- 盤面：magic-arrows.js が createLevel()/renderBoard() で中身を生成する。
+         グリッドサイズはCSSカスタムプロパティ --ma-grid で渡す。 -->
+    <div class="magic-arrows-board-frame">
+      <div class="magic-arrows-board" id="magic-arrows-board"></div>
+      <div class="magic-arrows-fx-layer" id="magic-arrows-fx-layer" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <!-- レベルクリア演出：既存の.princess-magic-overlay/.princess-magic-cardを再利用。
+       LEVEL1/2は NEXT LEVEL(大)+PLAY AGAIN(小)、LEVEL3は PLAY AGAIN+HOME のみ表示。 -->
+  <div id="magic-arrows-clear-overlay" class="zoo-speak-overlay princess-magic-overlay" hidden>
+    <div class="zoo-speak-card princess-magic-card princess-result-card magic-arrows-clear-card">
+      <p class="princess-you-did-it" id="magic-arrows-you-did-it">✨ YOU DID IT! ✨</p>
+      <img class="magic-arrows-clear-princess" id="magic-arrows-clear-princess" src="assets/princess.webp" alt="Princess" draggable="false" />
+      <p class="princess-round-sub" id="magic-arrows-clear-sub">Great job! 🎉</p>
+      <button id="magic-arrows-next-btn" class="princess-play-again-btn ps-btn-3d">NEXT LEVEL ▶</button>
+      <button id="magic-arrows-again-btn" class="magic-arrows-again-btn ps-btn-3d">▶ PLAY AGAIN</button>
+      <button id="magic-arrows-home-btn" class="princess-result-home-btn">🏠</button>
+    </div>
+  </div>
+</section>
+
 <!-- ===================== Zoo Adventure（動物園さがしゲーム） ===================== -->
 <section id="screen-zoo" class="screen zoo-screen">
   <button class="back-btn" data-target="screen-home">← もどる</button>
@@ -519,5 +581,6 @@
 <script src="zoo.js"></script>
 <script src="princess.js"></script>
 <script src="dressup.js"></script>
+<script src="magic-arrows.js"></script>
 </body>
 </html>
