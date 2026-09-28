@@ -15,11 +15,11 @@
  *   - 選択肢はすべて DRESSUP_ITEMS というデータ定義から生成するデータ駆動
  *     構造にしてあるので、将来「もっと髪型を増やす」「もっとドレスを増やす」
  *     場合も、このデータに項目を足すだけで対応できる（コード変更不要）。
- *   - 画像素材は現時点で HAIR（髪型）とDRESS（ドレス）カテゴリーの
- *     実写素材が揃っている（assets/dressup/hair/long|ponytail|braids.webp、
- *     assets/dressup/dresses/pink|blue|yellow.webp）。CROWN/SHOESはまだ
- *     無いので、そこでは選択状態をプレビュー下のLook Badgesと選択肢
- *     カードの金枠+✓だけに反映する。
+ *   - 画像素材は現時点で HAIR（髪型）・DRESS（ドレス）・CROWN（かんむり）
+ *     カテゴリーの実写素材が揃っている（assets/dressup/hair/、
+ *     assets/dressup/dresses/、assets/dressup/crowns/）。SHOESはまだ無い
+ *     ので、そこでは選択状態をプレビュー下のLook Badgesと選択肢カードの
+ *     金枠+✓だけに反映する。
  *   - 【着せ替え状態：dressup.equipped】 hair/crown/dress/shoesは
  *     完全に独立した状態として dressup.equipped = {hair,crown,dress,shoes}
  *     に保持される。あるカテゴリーで正解しても、他カテゴリーの
@@ -28,28 +28,27 @@
  *     これは将来、好きな順・好きな組み合わせで自由に着せ替えられる
  *     FREE DRESS UPモードを追加する際にも、このゲーム進行（固定順の
  *     クイズ）とは別に、そのまま流用できる状態設計にしてある。
- *   - 【見た目のレイヤー合成：dressup-layer-*】 index.html側は
- *     base→dress→shoes→hair→crown→effectsの順に重ねる透明レイヤー
- *     スタック（#dressup-portrait-layers内の各 .dressup-layer）を
- *     前提にしたDOM構造になっている。各アイテムが「髪だけ／ドレスだけ」
- *     を切り抜いた独立透明素材を持つ場合は item.layerPath +
- *     item.layerSlot（'hair'|'crown'|'dress'|'shoes'）を設定すれば、
- *     対応するレイヤー<img>にそのまま表示される（拡大縮小やscaleX/scaleY
- *     の個別調整は不要）。
- *   - 【重要な既知の制約：全身画像の優先表示】 現在のHAIR/DRESS画像は
- *     どちらも「もう片方のカテゴリー込みの全身portrait」（HAIR画像=
- *     Purple Dress固定、DRESS画像=Long Hair固定）であり、上記の
- *     layerPathを使った独立レイヤーではない（どのアイテムもlayerPathは
- *     未設定）。そのため実装は、hasAsset:true な「全身画像」アイテムが
- *     equipped中に複数あるとき、WHOLE_BODY_PRIORITY（下記）の優先順位に
- *     従って1枚だけをPrincess Preview全体に表示する（無理な合成はしない）。
- *     優先順位は shoes > dress > crown > hair なので、今のところ
- *     DRESSがHAIRより優先される（HAIR選択後にDRESSを選ぶと、見た目上は
- *     選んだ髪型がDress画像に焼き込まれたLong Hairに戻って見える）。
- *     dressup.equipped.hair 自体はきちんと保持されたままなので、
+ *   - 【見た目のレイヤー合成：dressup-layer-*、CROWNは本物の独立レイヤー】
+ *     index.html側は base→dress→shoes→hair→crown→effectsの順に重ねる
+ *     透明レイヤースタック（#dressup-portrait-layers内の各
+ *     .dressup-layer）を前提にしたDOM構造になっている。CROWNは
+ *     Gold/Flower/Purpleの3枚とも実際に item.layerPath
+ *     （assets/dressup/crowns/*.webp）を持ち、#dressup-layer-crownへ
+ *     単独で重ね描画される本物の独立レイヤー実装（hasAssetの「全身丸ごと
+ *     上書き」とは異なり、正解タップのたびにCrownだけが交換される）。
+ *     HAIR/DRESS/SHOESはまだ全身画像(hasAsset)のみでlayerPath未設定。
+ *   - 【重要な既知の制約：全身画像とCrownレイヤーの優先表示】 HAIR/DRESSの
+ *     画像は「もう片方のカテゴリー込みの全身portrait」（HAIR画像=Purple
+ *     Dress+Gold Crown固定、DRESS画像=Long Hair+Gold Crown固定）であり、
+ *     どちらも元からGold Crown相当が焼き込まれている。そのためCrown
+ *     レイヤーは、SHOES/DRESSの全身画像がPreviewに表示されている間は
+ *     二重王冠を避けるため必ず非表示になる（WHOLE_BODY_PRIORITYが
+ *     SHOES/DRESSを優先する間、CROWNは独立レイヤーとして見せられない）。
+ *     dressup.equipped.crown/hair自体はきちんと保持されたままなので、
  *     Look Badge／選択肢カードの金枠+✓には正しく反映され続ける。
- *     詳細と将来のレイヤー合成への移行方針は assets/dressup/README.md、
- *     および handleDressUpChoiceTap内のコメントを参照。
+ *     詳細と将来の完全解消への移行方針（Crownなし版Dress/Shoes素材が
+ *     必要）は assets/dressup/README.md、および computeDressupVisual /
+ *     handleDressUpChoiceTap内のコメントを参照。
  */
 (function () {
   const LISTEN_TIMEOUT_MS = 6000;
@@ -76,15 +75,20 @@
    *              WHOLE_BODY_PRIORITYの優先順位で1枚だけが表示される）
    *   thumbPath  3択カード自体に表示する、頭〜髪型部分だけを切り出した
    *              サムネイル画像。あれば色スウォッチの代わりにこの写真を使う
-   *              （HAIRで使用。DRESSは色スウォッチのままの方がPink/Blue/
-   *              Yellowの違いが一目でわかるため、意図的にthumbPathを付けていない）
-   *   layerPath  【将来用・現在はどのアイテムも未設定】髪だけ／
-   *              ドレスだけ／かんむりだけ等を切り抜いた独立透明レイヤー
-   *              素材のパス。設定されたアイテムは、対応する
-   *              dressup-layer-*（layerSlot参照）に単独で重ね描画される
-   *              （hasAsset方式の「全身丸ごと上書き」とは併用しない）。
-   *   layerSlot  layerPathを使う場合、どのレイヤー('hair'|'crown'|
-   *              'dress'|'shoes')に表示するか。省略時はcatIdと同じとみなす。
+   *              （HAIRで使用。CROWNはかんむり画像そのものをthumbPathに
+   *              使う。DRESSは色スウォッチのままの方がPink/Blue/Yellowの
+   *              違いが一目でわかるため、意図的にthumbPathを付けていない）
+   *   layerPath  髪だけ／ドレスだけ／かんむりだけ等を切り抜いた独立透明
+   *              レイヤー素材のパス。CROWNの3アイテムはすべて設定済み
+   *              （assets/dressup/crowns/*.webp）。設定されたアイテムは
+   *              対応するdressup-layer-*へ単独で重ね描画される（hasAsset
+   *              方式の「全身丸ごと上書き」とは併用しない）。HAIR/DRESS/
+   *              SHOESはまだ未設定（全身画像のみ）。
+   *   crownStyle CROWNのlayerPathアイテムのみ使用。#dressup-layer-crownに
+   *              適用するtop/left/width（Base Princessの頭部にPlaywright
+   *              スクリーンショットで目視確認しながら個別調整した値）。
+   *              Gold/Flower/Purpleで形が違うため、共通の数値を無理に
+   *              共有していない。
    */
   const DRESSUP_CATEGORIES = [
     {
@@ -139,7 +143,11 @@
           jp: "きんいろの かんむりは どれ？",
           swatch: "#FFD24D",
           icon: "👑",
-          assetPath: "assets/dressup/crowns/gold.webp", // 未配置
+          layerPath: "assets/dressup/crowns/gold.webp",
+          thumbPath: "assets/dressup/crowns/gold.webp",
+          // #dressup-layer-crown へ適用するCSS位置（Base Princessの頭部に
+          // 個別合わせ。Playwrightスクリーンショットで目視確認・微調整済み）。
+          crownStyle: { top: "3.6%", left: "37.3%", width: "26%" },
         },
         {
           id: "flower",
@@ -148,7 +156,9 @@
           jp: "はなの かんむりは どれ？",
           swatch: "#FF8FB1",
           icon: "🌸",
-          assetPath: "assets/dressup/crowns/flower.webp", // 未配置
+          layerPath: "assets/dressup/crowns/flower.webp",
+          thumbPath: "assets/dressup/crowns/flower.webp",
+          crownStyle: { top: "3.8%", left: "35.5%", width: "29.5%" },
         },
         {
           id: "purple",
@@ -157,7 +167,9 @@
           jp: "むらさきの かんむりは どれ？",
           swatch: "#B18BFF",
           icon: "👑",
-          assetPath: "assets/dressup/crowns/purple.webp", // 未配置
+          layerPath: "assets/dressup/crowns/purple.webp",
+          thumbPath: "assets/dressup/crowns/purple.webp",
+          crownStyle: { top: "3.2%", left: "37.6%", width: "25.3%" },
         },
       ],
     },
@@ -236,8 +248,13 @@
 
   // 将来のFREE DRESS UPモード（好きな組み合わせで自由に着せ替え）でも
   // そのまま使えるよう、「カテゴリーID→カテゴリー定義」のルックアップと
-  // 「ベース画像」を分けて持っておく。
-  const DRESSUP_BASE_IMAGE = "assets/princess.webp"; // 将来 assets/dressup/base/base.webp に差し替え可能
+  // 「ベース画像」を分けて持っておく。CrownなしのBase Princess
+  // （assets/dressup/base/base.webp）を使うことで、CROWNレイヤーを
+  // 重ねても既存のGold Crownと二重表示にならないようにしてある
+  // （旧assets/princess.webpには元からGold Crownが焼き込まれているため
+  // Dress Up専用でこちらに差し替えた。他ゲーム画面のprincess.webpは
+  // 変更していない）。
+  const DRESSUP_BASE_IMAGE = "assets/dressup/base/base.webp";
   function findCategory(catId) {
     return DRESSUP_CATEGORIES.find((c) => c.id === catId) || null;
   }
@@ -259,14 +276,23 @@
     dress: document.getElementById("dressup-layer-dress"),
     shoes: document.getElementById("dressup-layer-shoes"),
     hair: document.getElementById("dressup-layer-hair"),
-    crown: document.getElementById("dressup-layer-crown"),
   };
+  // Crownは「今どのポートレートが画面に見えているか」に関わらず常に同じ
+  // 見た目を保つ必要があるため（発音練習カード・完成カードでも外れて
+  // 見えてはいけない）、メインプレビュー／発音練習／完成の3枚すべての
+  // Crownレイヤー<img>をまとめて同期する。
+  const crownLayerEls = [
+    document.getElementById("dressup-layer-crown"),
+    document.getElementById("dressup-speak-crown"),
+    document.getElementById("dressup-round-crown"),
+  ].filter(Boolean);
   const fxLayerEl = document.getElementById("dressup-fx-layer");
   const badgesWrapEl = document.getElementById("dressup-look-badges");
   const choicesWrapEl = document.getElementById("dressup-choices");
 
   const speakOverlayEl = document.getElementById("dressup-speak-overlay");
   const speakPortraitEl = document.getElementById("dressup-speak-portrait");
+  const speakCrownEl = document.getElementById("dressup-speak-crown");
   const speakWordEl = document.getElementById("dressup-speak-word");
   const micIconEl = document.getElementById("dressup-mic-icon");
   const micRingEl = document.getElementById("dressup-mic-ring");
@@ -277,6 +303,7 @@
   const completeEl = document.getElementById("dressup-complete");
   const youLookEl = document.getElementById("dressup-you-did-it");
   const roundPortraitEl = document.getElementById("dressup-round-portrait");
+  const roundCrownEl = document.getElementById("dressup-round-crown");
   const roundSubEl = document.getElementById("dressup-round-sub");
   const againBtn = document.getElementById("dressup-again-btn");
   const homeBtnResult = document.getElementById("dressup-home-btn");
@@ -307,11 +334,60 @@
   };
 
   // 全身画像（hasAsset:true）が複数のカテゴリーで同時にequippedされた
-  // ときに、どれか1枚だけをPrincess Preview全体に表示するための優先順位。
-  // 「無理に合成せず、質の高い1枚をそのまま見せる」という方針の実装で、
-  // 出題順(HAIR→CROWN→DRESS→SHOES)と揃えて「後の工程ほど優先」にしてある
-  // （将来SHOESに全身画像が増えれば、SHOESが最優先で表示される）。
-  const WHOLE_BODY_PRIORITY = ["shoes", "dress", "crown", "hair"];
+  // ときに、どれか1枚だけをPrincess Preview全体（Baseレイヤー）に表示する
+  // ための優先順位。「無理に合成せず、質の高い1枚をそのまま見せる」という
+  // 方針の実装で、出題順(HAIR→CROWN→DRESS→SHOES)と揃えて「後の工程ほど
+  // 優先」にしてある（将来SHOESに全身画像が増えれば、SHOESが最優先で
+  // 表示される）。CROWNはここには含まれない：CROWNは独立透明レイヤー
+  // （layerPath）で実装されているため、全身画像の優先順位とは別ロジック
+  // （下のcomputeDressupVisual）で扱う。
+  const WHOLE_BODY_PRIORITY = ["shoes", "dress", "hair"];
+
+  /**
+   * 現在のdressup.equippedから、実際に描画すべき見た目を1つ計算する。
+   * 戻り値: { bodySrc, showCrownLayer, crownItem }
+   *
+   *   bodySrc         Baseレイヤー（#dressup-preview-img）に表示する画像。
+   *   showCrownLayer  #dressup-layer-crownを表示してよいかどうか。
+   *   crownItem       showCrownLayerがtrueのとき、表示すべきCrownアイテム。
+   *
+   * 【判定ロジックと「二重王冠」対策】
+   * SHOES/DRESSの全身画像（hasAsset:true）が選ばれている場合は最優先で
+   * それを表示する。これらの画像には最初からGold Crown相当が焼き込まれて
+   * いるため、その上にCrownレイヤーを重ねると二重王冠になってしまう
+   * ＝ showCrownLayer は必ずfalseにする（ご指示の「二重王冠は絶対禁止」を
+   * 最優先で守るため）。
+   * 次にCROWNが選ばれていれば、CrownなしのBase Princess
+   * （assets/dressup/base/base.webp）をBaseレイヤーに表示し、その上に
+   * 選んだCrownレイヤーを重ねる＝本物の「着せ替え」になる。
+   * CROWNが未選択でHAIRの全身画像があればそれを表示する（これはCrownが
+   * 選ばれるまでの、これまでと全く同じ見た目を維持するための分岐）。
+   * 何も選ばれていなければBase Princessのまま。
+   *
+   * 【既知の制約】SHOES/DRESSが選ばれるとCrownレイヤーは非表示になる
+   * （dressup.equipped.crown自体は保持されたまま。Look Badge/選択肢カード
+   * の金枠には影響しない）。これはSHOES/DRESSの全身画像に元から別の
+   * 王冠が焼き込まれており、二重王冠を避けるには「Crownなし版の
+   * Dress/Shoes全身画像」が別途必要なため。詳細はREADME参照。
+   */
+  function computeDressupVisual() {
+    for (const catId of WHOLE_BODY_PRIORITY) {
+      if (catId === "hair") break; // hairは下で別扱い（crownとの優先順位のため）
+      const item = dressup.equipped[catId];
+      if (item && item.hasAsset && item.assetPath) {
+        return { bodySrc: item.assetPath, showCrownLayer: false, crownItem: null };
+      }
+    }
+    const crownItem = dressup.equipped.crown;
+    if (crownItem && crownItem.layerPath) {
+      return { bodySrc: DRESSUP_BASE_IMAGE, showCrownLayer: true, crownItem };
+    }
+    const hairItem = dressup.equipped.hair;
+    if (hairItem && hairItem.hasAsset && hairItem.assetPath) {
+      return { bodySrc: hairItem.assetPath, showCrownLayer: false, crownItem: null };
+    }
+    return { bodySrc: DRESSUP_BASE_IMAGE, showCrownLayer: false, crownItem: null };
+  }
 
   function prefersReducedMotion() {
     return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -351,14 +427,14 @@
   }
 
   /**
-   * dressup.equipped の中から、独立透明レイヤー素材(layerPath)を持つ
-   * アイテムだけを対応する dressup-layer-* へ反映する。今のところ
-   * どのアイテムもlayerPathを持たないため、常に全レイヤーhiddenのまま
-   * だが、将来layerPath付きの素材が追加されたカテゴリーから自動的に
-   * ここで表示されるようになる（このロジックは変更不要）。
+   * dress/shoes/hairの各独立透明レイヤー(layerPath)を反映する。今のところ
+   * どのアイテムもlayerPathを持たないため、常に非表示のまま（将来素材が
+   * 追加されたカテゴリーから自動的にここで表示されるようになる）。
+   * CROWNは二重王冠を避けるための専用ロジック(applyCrownLayer)が別にある
+   * ため、ここでは扱わない。
    */
   function applyIndependentLayers() {
-    ["dress", "shoes", "hair", "crown"].forEach((slot) => {
+    ["dress", "shoes", "hair"].forEach((slot) => {
       const el = layerEls[slot];
       if (!el) return;
       const item = dressup.equipped[slot];
@@ -373,16 +449,35 @@
   }
 
   /**
-   * dressup.equipped の中から、全身画像(hasAsset:true)を持つアイテムを
-   * WHOLE_BODY_PRIORITYの優先順位で探し、Baseレイヤーに表示すべき画像を
-   * 1枚決める。該当が無ければベースのprincess.webpのまま。
+   * メインプレビュー／発音練習／完成の3枚すべてのCrownレイヤー<img>を、
+   * computeDressupVisual()の結果に合わせて同期する（「発音画面に進んでも
+   * Crownを外さないこと」という要件のため、3枚とも常に同じ見た目に保つ）。
+   * 表示する場合は、そのCrownアイテムのcrownStyle（Base Princessの頭部に
+   * 合わせて個別調整したtop/left/width）を毎回適用し直す（Crownごとに
+   * 形もサイズも違うため、共通のCSS数値を無理に共有しない）。
+   * playPop=trueのとき、装着/交換の瞬間の「魔法でポンッ」演出
+   * （dressup-crown-pop、0.3秒・opacity+均一scaleのみ）を発火する。
    */
-  function pickWholeBodyPortraitSrc() {
-    for (const catId of WHOLE_BODY_PRIORITY) {
-      const item = dressup.equipped[catId];
-      if (item && item.hasAsset && item.assetPath) return item.assetPath;
-    }
-    return DRESSUP_BASE_IMAGE;
+  function applyCrownLayer(visual, playPop) {
+    crownLayerEls.forEach((el) => {
+      if (visual.showCrownLayer && visual.crownItem && visual.crownItem.layerPath) {
+        const style = visual.crownItem.crownStyle || {};
+        el.style.top = style.top || "4%";
+        el.style.left = style.left || "37%";
+        el.style.width = style.width || "26%";
+        el.src = visual.crownItem.layerPath;
+        el.hidden = false;
+        if (playPop && !prefersReducedMotion()) {
+          el.classList.remove("dressup-crown-pop");
+          void el.offsetWidth; // remove→addを確実に再トリガーするためのreflow
+          el.classList.add("dressup-crown-pop");
+        }
+      } else {
+        el.hidden = true;
+        el.classList.remove("dressup-crown-pop");
+        el.removeAttribute("src");
+      }
+    });
   }
 
   /**
@@ -391,8 +486,10 @@
    */
   function renderDressUpPreview() {
     applyIndependentLayers();
-    dressup.activePortraitSrc = pickWholeBodyPortraitSrc();
-    if (previewImgEl) previewImgEl.src = dressup.activePortraitSrc;
+    const visual = computeDressupVisual();
+    dressup.activePortraitSrc = visual.bodySrc;
+    if (previewImgEl) previewImgEl.src = visual.bodySrc;
+    applyCrownLayer(visual, false);
     renderLookBadges();
   }
 
@@ -651,6 +748,11 @@
       cardEl.classList.add("dressup-correct-pop");
     }
 
+    // Crownレイヤーが「タップした瞬間だけポンッと装着演出する」ために、
+    // equippedを更新する前の状態を覚えておく（何も変わっていないのに
+    // 演出を再生しないようにするため）。
+    const prevVisual = computeDressupVisual();
+
     // このカテゴリーだけを「今これを着けている」に更新する。他カテゴリーの
     // equippedには一切触れない＝独立した着せ替え状態（要件「選択した
     // カテゴリー以外をリセットしないこと」）。
@@ -662,12 +764,13 @@
     cardEl.classList.add("dressup-option-equipped");
 
     // 独立透明レイヤー素材(layerPath)があれば対応するレイヤーへ反映する
-    // （今のところどのアイテムも未設定なので実際には何も起きない）。
+    // （dress/shoes/hairは今のところどのアイテムも未設定なので実際には
+    // 何も起きない。CROWNはapplyCrownLayerで別途扱う）。
     applyIndependentLayers();
 
     // 全身画像(hasAsset:true)を持つアイテムがequipped中にあれば、
-    // WHOLE_BODY_PRIORITYに従って1枚を選びPrincess Preview全体を
-    // その見た目へ「変身」させる。横スライドはせず、ふわっとした
+    // WHOLE_BODY_PRIORITYに従って1枚を選びPrincess Preview（Baseレイヤー）
+    // をその見た目へ「変身」させる。横スライドはせず、ふわっとした
     // フェード＋scaleと、プレビュー自身の上に咲くsparkleで演出する。
     //
     // 【重要：Hair × Dressの組み合わせについて】
@@ -675,11 +778,10 @@
     // DRESS画像は「Long Hair + 選んだドレス色」の全身portraitであり、
     // どちらも“もう片方のカテゴリー込みの完成画像”しか無い（髪だけ・
     // ドレスだけの透明レイヤー素材ではない＝layerPath未設定）。そのため
-    // 今の実装は「WHOLE_BODY_PRIORITY（shoes > dress > crown > hair）に
-    // 従って1枚だけを portrait 全体として表示する」方式にしてある。
-    // 現状DRESSがHAIRより優先されるため、実際には
+    // 今の実装は「WHOLE_BODY_PRIORITY（shoes > dress > hair）に従って
+    // 1枚だけを portrait 全体として表示する」方式にしてある。現状DRESSが
+    // HAIRより優先されるため、実際には
     //   HAIRを選ぶ → Previewがその髪型のportraitに変身
-    //   （CROWNは仮素材なので見た目は変わらず）
     //   DRESSを選ぶ → Previewがそのドレス色のportraitに変身
     //                 （＝見た目上は選んだ髪型が消え、Dress画像に
     //                   焼き込まれているLong Hairに戻って見える）
@@ -690,15 +792,29 @@
     // （同一base・同一座標）が揃った場合は、そのアイテムに
     // layerPath/layerSlotを設定するだけでWHOLE_BODY_PRIORITYより優先され
     // ず独立表示に切り替わる（コード変更不要。assets/dressup/README.md参照）。
-    const nextWholeBodySrc = pickWholeBodyPortraitSrc();
-    if (nextWholeBodySrc !== dressup.activePortraitSrc && previewImgEl) {
+    const nextVisual = computeDressupVisual();
+    if (nextVisual.bodySrc !== dressup.activePortraitSrc && previewImgEl) {
       const previewCenter = elementRelativeCenter(previewImgEl);
       spawnSparkleBurst(previewCenter.cx, previewCenter.cy, Math.max(previewCenter.width, previewCenter.height) * 0.5, {
         chars: ["✨", "⭐", "💫"],
         count: 8,
       });
-      swapDressUpPreviewImage(nextWholeBodySrc);
+      swapDressUpPreviewImage(nextVisual.bodySrc);
     }
+
+    // CROWNレイヤーの反映。【重要：二重王冠の防止】SHOES/DRESSの全身画像は
+    // 最初からGold Crown相当が焼き込まれているため、それらがBaseレイヤーに
+    // 表示されている間はCrownレイヤーを必ず非表示にする
+    // （computeDressupVisual内でshowCrownLayer:falseとして保証している。
+    // ご指示の「絶対に二重王冠にしない」を最優先している）。そのため
+    // SHOES/DRESSを選んだ瞬間、直前まで見えていたCrownは見た目上消える
+    // （dressup.equipped.crown自体は保持され、Look Badge/選択肢カードの
+    // 金枠には影響しない）。Crownを選んだ瞬間・別のCrownに交換した瞬間
+    // だけ、「魔法でポンッ」の装着演出（dressup-crown-pop）を発火する。
+    const crownVisibleChanged =
+      nextVisual.showCrownLayer &&
+      (!prevVisual.showCrownLayer || !prevVisual.crownItem || prevVisual.crownItem.id !== nextVisual.crownItem.id);
+    applyCrownLayer(nextVisual, crownVisibleChanged);
 
     Speech.speak(`${item.speakWord}!`, {
       onEnd: () => enterDressUpSpeakPhase(item),
@@ -720,6 +836,7 @@
 
     if (speakPortraitEl) {
       speakPortraitEl.classList.remove("pe-mini-dance");
+      if (speakCrownEl) speakCrownEl.classList.remove("pe-mini-dance");
       // 発音練習カードのプリンセスも、選んだ見た目（activePortraitSrc）を維持する。
       speakPortraitEl.src = dressup.activePortraitSrc;
     }
@@ -854,6 +971,14 @@
       void speakPortraitEl.offsetWidth;
       speakPortraitEl.classList.add("pe-mini-dance");
       setTimeout(() => speakPortraitEl.classList.remove("pe-mini-dance"), 900);
+      // Crownレイヤーも同じダンスで一緒に揺れるようにする（頭だけ動いて
+      // Crownが置いてけぼりにならないように、同じキーフレームを適用）。
+      if (speakCrownEl) {
+        speakCrownEl.classList.remove("pe-mini-dance");
+        void speakCrownEl.offsetWidth;
+        speakCrownEl.classList.add("pe-mini-dance");
+        setTimeout(() => speakCrownEl.classList.remove("pe-mini-dance"), 900);
+      }
     }
 
     if (!speakOverlayEl) return;
@@ -918,6 +1043,12 @@
         void roundPortraitEl.offsetWidth;
         roundPortraitEl.classList.add("pe-special-dance");
       }
+      // Crownレイヤーも同じSPECIAL DANCEで一緒に揺れるようにする。
+      if (roundCrownEl) {
+        roundCrownEl.classList.remove("pe-special-dance");
+        void roundCrownEl.offsetWidth;
+        roundCrownEl.classList.add("pe-special-dance");
+      }
       spawnCompleteCelebrationParticles();
     } else {
       spawnCompleteCelebrationParticles({ staticOnly: true });
@@ -925,6 +1056,7 @@
 
     setTimeout(() => {
       if (roundPortraitEl) roundPortraitEl.classList.remove("pe-special-dance");
+      if (roundCrownEl) roundCrownEl.classList.remove("pe-special-dance");
       if (youLookEl) youLookEl.hidden = true;
       if (roundSubEl) roundSubEl.hidden = false;
       if (againBtn) againBtn.hidden = false;

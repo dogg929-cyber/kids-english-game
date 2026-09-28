@@ -412,10 +412,16 @@
        「分かりやすい仮カード」。dressup.js が DRESSUP_ITEMS からJSで生成する）。 -->
   <div class="dressup-choices" id="dressup-choices"></div>
 
-  <!-- 発音練習オーバーレイ：Princess Englishと同じMAGIC SPEAK CARDを再利用。 -->
+  <!-- 発音練習オーバーレイ：Princess Englishと同じMAGIC SPEAK CARDを再利用。
+       Crownを装着中でもこの画面で外れて見えてしまわないよう、メインの
+       プレビューと同様に「ポートレート + 独立したCrownレイヤー」の
+       2枚重ね構造にしてある（#dressup-speak-crown）。 -->
   <div id="dressup-speak-overlay" class="zoo-speak-overlay princess-magic-overlay" hidden>
     <div class="zoo-speak-card princess-magic-card">
-      <img class="princess-speak-portrait" id="dressup-speak-portrait" src="assets/princess.webp" alt="Princess" draggable="false" />
+      <div class="dressup-portrait-wrap">
+        <img class="princess-speak-portrait" id="dressup-speak-portrait" src="assets/princess.webp" alt="Princess" draggable="false" />
+        <img class="dressup-layer dressup-layer-crown" id="dressup-speak-crown" alt="" draggable="false" hidden />
+      </div>
       <p class="princess-speak-sub">Can you say</p>
       <p class="princess-speak-word" id="dressup-speak-word">PONYTAIL</p>
       <div class="princess-mic-wrap">
@@ -436,7 +442,10 @@
   <div id="dressup-complete" class="zoo-speak-overlay princess-magic-overlay" hidden>
     <div class="zoo-speak-card princess-magic-card princess-result-card">
       <p class="princess-you-did-it" id="dressup-you-did-it" hidden>✨ YOU LOOK BEAUTIFUL! ✨</p>
-      <img class="princess-round-portrait" id="dressup-round-portrait" src="assets/princess.webp" alt="Princess" draggable="false" />
+      <div class="dressup-portrait-wrap">
+        <img class="princess-round-portrait" id="dressup-round-portrait" src="assets/princess.webp" alt="Princess" draggable="false" />
+        <img class="dressup-layer dressup-layer-crown" id="dressup-round-crown" alt="" draggable="false" hidden />
+      </div>
       <p class="princess-round-sub" id="dressup-round-sub" hidden>Great job! 🎉</p>
       <button id="dressup-again-btn" class="princess-play-again-btn ps-btn-3d" hidden>▶ PLAY AGAIN</button>
       <button id="dressup-home-btn" class="princess-result-home-btn" hidden>🏠</button>

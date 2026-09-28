@@ -1583,10 +1583,26 @@ button {
   width: clamp(140px, 48vw, 210px);
   margin-bottom: 10px;
 }
+/* Dress Up専用：発音練習カード／完成カードのポートレートに、Crownだけを
+   独立したレイヤーとして重ねるための薄いラッパー。Body Parts側
+   （princess.js）は素の<img>のままなので影響しない。ラッパー自体は
+   位置決めの土台になるだけで、幅やaspect-ratioは中の.princess-speak-
+   portrait/.princess-round-portraitがそのまま決める（fit-contentで
+   ラップするだけ）。 */
+.dressup-portrait-wrap {
+  position: relative;
+  width: fit-content;
+  margin: 0 auto;
+}
 
-/* MINI DANCE：発音成功「Great job!」の瞬間、約0.8秒 */
+/* MINI DANCE：発音成功「Great job!」の瞬間、約0.8秒。Dress UpのCrown
+   レイヤー（#dressup-speak-crown）にも同じキーフレームを適用し、頭だけ
+   ダンスしてCrownが置いてけぼりにならないようにする。 */
 @media (prefers-reduced-motion: no-preference) {
-  .princess-speak-portrait.pe-mini-dance { animation: pe-mini-dance 0.8s ease; }
+  .princess-speak-portrait.pe-mini-dance,
+  .dressup-layer-crown.pe-mini-dance {
+    animation: pe-mini-dance 0.8s ease;
+  }
   @keyframes pe-mini-dance {
     0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
     25% { transform: translateY(-8px) rotate(-3deg) scale(1.02); }
@@ -1595,13 +1611,21 @@ button {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .princess-speak-portrait.pe-mini-dance { animation: none; }
+  .princess-speak-portrait.pe-mini-dance,
+  .dressup-layer-crown.pe-mini-dance {
+    animation: none;
+  }
 }
 
 /* SPECIAL DANCE：10問クリア時、約3秒。MINI DANCEより少し豪華に、
- * 「左に少し傾く→ジャンプ→右に少し傾く→ジャンプ→少し大きくなって着地」。 */
+ * 「左に少し傾く→ジャンプ→右に少し傾く→ジャンプ→少し大きくなって着地」。
+ * こちらも完成カードのCrownレイヤー（#dressup-round-crown）に同じ
+ * キーフレームを適用する。 */
 @media (prefers-reduced-motion: no-preference) {
-  .princess-round-portrait.pe-special-dance { animation: pe-special-dance 3s ease; }
+  .princess-round-portrait.pe-special-dance,
+  .dressup-layer-crown.pe-special-dance {
+    animation: pe-special-dance 3s ease;
+  }
   @keyframes pe-special-dance {
     0%   { transform: translateY(0) rotate(0deg) scale(1); }
     10%  { transform: translateY(0) rotate(-6deg) scale(1); }
@@ -1614,7 +1638,10 @@ button {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .princess-round-portrait.pe-special-dance { animation: none; }
+  .princess-round-portrait.pe-special-dance,
+  .dressup-layer-crown.pe-special-dance {
+    animation: none;
+  }
 }
 
 /* =====================================================================
@@ -1835,6 +1862,36 @@ button {
 }
 /* dress/shoes/hair/crownの各レイヤーは、独立した透明素材(layerPath)が
    揃うまでhidden属性のまま非表示（[hidden]はブラウザ標準でdisplay:none）。 */
+
+/* CROWNレイヤーだけは、.dressup-layerの「inset:0で画面いっぱい」を上書きし、
+   JS側（item.crownStyle）が指定する top/left/width で頭の位置にピンポイント
+   配置する。heightは指定せず、画像自身の縦横比のまま自動計算される
+   （object-fit:containを使わず、幅だけ指定するので歪みは発生しない）。
+   transform-originを底辺中央にしているのは、次のdressup-crown-popが
+   「頭に乗る位置を軸にふわっと出現する」ように見せるため。 */
+.dressup-layer-crown {
+  inset: auto;
+  height: auto;
+  object-fit: fill;
+  filter: drop-shadow(0 3px 5px rgba(120, 80, 30, 0.35));
+  transform-origin: 50% 100%;
+}
+/* Crownを装着/交換した瞬間の「魔法でポンッと乗った」演出。横スライドは
+   せず、その場でふわっと現れる（opacity + 均一scaleのみ。scaleX/scaleYの
+   個別指定はしない）。0.2〜0.4秒に収まるよう0.3秒に設定。 */
+@media (prefers-reduced-motion: no-preference) {
+  .dressup-layer-crown.dressup-crown-pop {
+    animation: dressup-crown-pop 0.3s ease;
+  }
+  @keyframes dressup-crown-pop {
+    0% { opacity: 0; transform: scale(0.5); }
+    65% { opacity: 1; transform: scale(1.12); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dressup-layer-crown.dressup-crown-pop { animation: none; }
+}
 /* ドレスなど実画像を選んだ瞬間の「変身」演出。横方向へは一切動かさず、
    ふわっとした fade + 均一な scale（縦横同じ倍率）だけで切り替える。
    scaleXとscaleYを別々に指定することは絶対にしない（画像を歪ませない
