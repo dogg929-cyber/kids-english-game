@@ -15,15 +15,24 @@
  *   - 選択肢はすべて DRESSUP_ITEMS というデータ定義から生成するデータ駆動
  *     構造にしてあるので、将来「もっと髪型を増やす」「もっとドレスを増やす」
  *     場合も、このデータに項目を足すだけで対応できる（コード変更不要）。
- *   - 画像素材は現時点で DRESS（ドレス）カテゴリーのみ実写素材
- *     （assets/dressup/dresses/pink|blue|yellow.webp）が揃っている。
- *     HAIR/CROWN/SHOESはまだ無いので、プレビューはassets/princess.webpの
- *     まま、選択状態はプレビュー下のLook Badgesだけに反映する。
+ *   - 画像素材は現時点で HAIR（髪型）とDRESS（ドレス）カテゴリーの
+ *     実写素材が揃っている（assets/dressup/hair/long|ponytail|braids.webp、
+ *     assets/dressup/dresses/pink|blue|yellow.webp）。CROWN/SHOESはまだ
+ *     無いので、そこでは選択状態をプレビュー下のLook Badgesだけに反映する。
  *     各アイテムの hasAsset:true + assetPath を見て「実画像に変身させる
- *     カテゴリーかどうか」を判定しているので、将来HAIR/CROWN/SHOESの
- *     画像が揃ったら、同じように hasAsset:true と assetPath を設定する
- *     だけで（レイヤー合成にする場合は別途対応が必要だが）同じ変身演出が
- *     そのまま使える。
+ *     カテゴリーかどうか」を判定しているので、将来CROWN/SHOESの画像が
+ *     揃ったら、同じように hasAsset:true と assetPath を設定するだけで
+ *     同じ変身演出がそのまま使える。
+ *   - 【重要な既知の制約】現在のHAIR/DRESS画像はどちらも「もう片方の
+ *     カテゴリー込みの全身portrait」（HAIR画像=Purple Dress固定、
+ *     DRESS画像=Long Hair固定）であり、髪だけ／ドレスだけの透明レイヤー
+ *     素材ではない。そのため実装は「最後にhasAssetな選択をしたカテゴリー
+ *     の画像でPrincess Preview全体を上書きする」方式で、出題順が固定
+ *     HAIR→CROWN→DRESS→SHOESであることから、DRESSを選ぶと見た目上は
+ *     選んだ髪型がDress画像に焼き込まれたLong Hairに戻って見える
+ *     （選択の記録自体は dressup.selections に正しく残る）。詳細と
+ *     将来のレイヤー合成への移行方針は assets/dressup/README.md、
+ *     および handleDressUpChoiceTap内のコメントを参照。
  */
 (function () {
   const LISTEN_TIMEOUT_MS = 6000;
@@ -41,8 +50,16 @@
    *   speakWord  読み上げ・発音練習で使う短い単語（例: "Blue"）。
    *              色の付かない項目（Ponytailなど）はenと同じでよい。
    *   jp         「どれ？」形式の日本語サブテキスト
-   *   swatch     3択カードに表示する色スウォッチ（CSS color）
-   *   assetPath  将来のレイヤー画像パス（今は未使用。素材が揃ったら設定）
+   *   swatch     実画像が無い項目向けの3択カード色スウォッチ（CSS color）
+   *   icon       実画像が無い項目向けの3択カード絵文字
+   *   assetPath  Princess Preview全体をこの画像に差し替えるための実画像パス
+   *              （未配置カテゴリーはコメントのみでコード上は未設定）
+   *   hasAsset   true の場合、正解タップでPrincess Preview全体を
+   *              assetPathの画像へ変身させる（HAIR/DRESSで使用）
+   *   thumbPath  3択カード自体に表示する、頭〜髪型部分だけを切り出した
+   *              サムネイル画像。あれば色スウォッチの代わりにこの写真を使う
+   *              （HAIRで使用。DRESSは色スウォッチのままの方がPink/Blue/
+   *              Yellowの違いが一目でわかるため、意図的にthumbPathを付けていない）
    */
   const DRESSUP_CATEGORIES = [
     {
@@ -57,7 +74,9 @@
           jp: "ロングヘアは どれ？",
           swatch: "#7A4A2B",
           icon: "💁‍♀️",
-          assetPath: "assets/dressup/hair/long.webp", // 未配置
+          assetPath: "assets/dressup/hair/long.webp",
+          thumbPath: "assets/dressup/hair/long_thumb.webp",
+          hasAsset: true,
         },
         {
           id: "ponytail",
@@ -66,7 +85,9 @@
           jp: "ポニーテールは どれ？",
           swatch: "#B5722E",
           icon: "🎀",
-          assetPath: "assets/dressup/hair/ponytail.webp", // 未配置
+          assetPath: "assets/dressup/hair/ponytail.webp",
+          thumbPath: "assets/dressup/hair/ponytail_thumb.webp",
+          hasAsset: true,
         },
         {
           id: "braids",
@@ -75,7 +96,9 @@
           jp: "おさげは どれ？",
           swatch: "#8F5B2E",
           icon: "👧",
-          assetPath: "assets/dressup/hair/braids.webp", // 未配置
+          assetPath: "assets/dressup/hair/braids.webp",
+          thumbPath: "assets/dressup/hair/braids_thumb.webp",
+          hasAsset: true,
         },
       ],
     },
@@ -324,7 +347,12 @@
     }, 420);
   }
 
-  /** 3択カードを描画する。画像素材が無いので、色スウォッチ＋絵文字＋英単語の仮カード。 */
+  /**
+   * 3択カードを描画する。thumbPath（頭〜髪型を切り出した実写サムネイル）が
+   * あればそれを使い、無ければ「色スウォッチ＋絵文字」の仮カードにする。
+   * 2〜5歳児が文字を読めなくても写真だけで「この髪型！」と選べるように、
+   * サムネイルがある場合は絵文字を重ねない（写真そのものが答えのため）。
+   */
   function renderDressUpChoices(category, target) {
     if (!choicesWrapEl) return;
     choicesWrapEl.innerHTML = "";
@@ -335,10 +363,20 @@
       btn.dataset.itemId = item.id;
       btn.setAttribute("aria-label", item.en);
 
-      const swatch = document.createElement("span");
-      swatch.className = "dressup-option-swatch";
-      swatch.style.background = item.swatch;
-      swatch.textContent = item.icon || "";
+      let swatch;
+      if (item.thumbPath) {
+        btn.classList.add("dressup-option-card-photo");
+        swatch = document.createElement("img");
+        swatch.className = "dressup-option-thumb";
+        swatch.src = item.thumbPath;
+        swatch.alt = item.en;
+        swatch.draggable = false;
+      } else {
+        swatch = document.createElement("span");
+        swatch.className = "dressup-option-swatch";
+        swatch.style.background = item.swatch;
+        swatch.textContent = item.icon || "";
+      }
 
       const label = document.createElement("span");
       label.className = "dressup-option-label";
@@ -538,9 +576,30 @@
     dressup.selections[dressup.targetCatId] = item.id;
     renderLookBadges();
 
-    // 実画像があるアイテム（現時点ではDRESSのみ）は、Princess Previewを
-    // 選んだ見た目へ「変身」させる。横スライドはせず、ふわっとした
+    // 実画像があるアイテム（現時点ではHAIRとDRESS）は、Princess Preview
+    // 全体を選んだ見た目へ「変身」させる。横スライドはせず、ふわっとした
     // フェード＋scaleと、プレビュー自身の上に咲くsparkleで演出する。
+    //
+    // 【重要：Hair × Dressの組み合わせについて】
+    // 現在のHAIR画像は「Purple Dress + 選んだ髪型」の全身portrait、
+    // DRESS画像は「Long Hair + 選んだドレス色」の全身portraitであり、
+    // どちらも“もう片方のカテゴリー込みの完成画像”しか無い（髪だけ・
+    // ドレスだけの透明レイヤー素材ではない）。そのため今の実装は
+    // 「一番最後にhasAssetな選択をしたカテゴリーの画像で portrait を
+    // 丸ごと上書きする」という仕様にしてある。ゲームの出題順は固定で
+    // HAIR→CROWN→DRESS→SHOESなので、実際には
+    //   HAIRを選ぶ → Previewがその髪型のportraitに変身
+    //   （CROWNは仮素材なので見た目は変わらず）
+    //   DRESSを選ぶ → Previewがそのドレス色のportraitに変身
+    //                 （＝見た目上は選んだ髪型が消え、Dress画像に
+    //                   焼き込まれているLong Hairに戻って見える）
+    // という挙動になる。dressup.selections には選んだHairのidは
+    // そのままきちんと保持されており（Look Badgeの「HAIR達成」表示や
+    // スコアには影響しない）、あくまで“最後に変身した見た目”だけが
+    // Dress優先になる、という仕様上の制約。将来、髪だけ／ドレスだけの
+    // 透明レイヤー素材（同一base・同一座標）が揃った場合は、ここを
+    // 複数<img>を重ねる方式に差し替えることでHair×Dressの完全な
+    // 組み合わせ表示が可能になる（assets/dressup/README.md参照）。
     if (item.hasAsset && item.assetPath && previewImgEl) {
       const previewCenter = elementRelativeCenter(previewImgEl);
       spawnSparkleBurst(previewCenter.cx, previewCenter.cy, Math.max(previewCenter.width, previewCenter.height) * 0.5, {

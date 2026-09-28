@@ -1940,6 +1940,26 @@ button {
   justify-content: center;
   font-size: 15px;
 }
+/* thumbPathがあるカード（現在はHAIR）は、色スウォッチの代わりに
+   頭〜髪型部分だけを切り出した実写サムネイルを表示する。2〜5歳児が
+   文字を読めなくても「この髪型！」と写真だけで選べるようにするため。
+   object-fit:containで、画像を歪ませず（scaleX/scaleY別指定は無し）
+   そのままの縦横比で表示する。 */
+.dressup-option-card.dressup-option-card-photo {
+  min-height: 150px;
+  padding: 8px 6px 8px;
+}
+.dressup-option-thumb {
+  width: 100%;
+  max-width: 108px;
+  aspect-ratio: 591 / 372;
+  object-fit: contain;
+  display: block;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  background: #fff8ef;
+}
 .dressup-option-label {
   font-size: clamp(12px, 3.6vw, 14px);
   font-weight: 900;
