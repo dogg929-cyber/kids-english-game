@@ -14,6 +14,10 @@
 
 * { box-sizing: border-box; }
 
+/* hidden属性を持つ要素は、他のクラス（display:flex等）より必ず優先して非表示にする。
+   例: Zoo Adventureのホームボタンなど、コードは残したまま一時的に隠したい要素向け。 */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -349,7 +353,7 @@ button {
 .quiz-opt.disabled { pointer-events: none; }
 
 /* 不正解タップ: 否定的な色は使わず、そっと揺れるだけ */
-.quiz-opt.shake, .zoo-tap.shake { animation: shake 0.4s ease; }
+.quiz-opt.shake, .zoo-tap.shake, .princess-stage.shake { animation: shake 0.4s ease; }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-6px); }
@@ -363,7 +367,7 @@ button {
   line-height: 1;
   margin-bottom: 4px;
 }
-.speak-emoji.bounce-jump, .zoo-emoji.bounce-jump { animation: bounceJump 0.8s ease; }
+.speak-emoji.bounce-jump, .zoo-emoji.bounce-jump, .princess-illustration.bounce-jump { animation: bounceJump 0.8s ease; }
 @keyframes bounceJump {
   0% { transform: translateY(0) scale(1); }
   25% { transform: translateY(-28px) scale(1.06); }
@@ -715,4 +719,177 @@ button {
   flex-direction: column;
   align-items: center;
   text-align: center;
+}
+
+/* =====================================================================
+ * Princess English（プリンセスの からだ さがしゲーム）
+ * 現在のメインゲーム。選択肢カードは使わず、画面中央の大きなプリンセス
+ * イラストに直接タップして、指定された身体の部位を探す。
+ * 発音練習ループ・オーバーレイのクラスはZoo Adventureのものを再利用している。
+ * ===================================================================== */
+
+/* ---------- ホーム画面のメインボタン ---------- */
+.princess-launch-btn {
+  width: 100%;
+  max-width: 400px;
+  margin-top: 22px;
+  padding: 22px 20px;
+  border-radius: 32px;
+  background: linear-gradient(120deg, #FFD24D, #FF8FB1, #B18BFF);
+  background-size: 200% 200%;
+  animation: princess-shimmer 6s ease infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  box-shadow: 0 10px 0 var(--shadow), 0 14px 24px rgba(0, 0, 0, 0.18);
+  color: white;
+}
+.princess-launch-btn:active {
+  transform: translateY(7px);
+  box-shadow: 0 3px 0 var(--shadow), 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+.princess-launch-emoji { font-size: 46px; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.18)); }
+.princess-launch-text {
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: left;
+  text-shadow: 1px 2px 2px rgba(0, 0, 0, 0.15);
+}
+.princess-launch-text .en { font-size: 13px; font-weight: 700; opacity: 0.9; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes princess-shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+}
+
+/* ---------- 画面まわり ---------- */
+.screen.princess-screen { padding: 0; overflow: hidden; }
+.princess-screen.active { display: block; }
+
+.princess-scenery {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: linear-gradient(180deg, #FFE1F0 0%, #FFF3E3 35%, #E9F9D8 40%, #CDEFAE 100%);
+}
+.princess-sun { position: absolute; top: 14px; right: 20px; font-size: 36px; opacity: 0.95; }
+.princess-cloud { position: absolute; font-size: 30px; opacity: 0.85; }
+.princess-cloud-1 { top: 20px; left: 8%; animation: zoo-drift 24s ease-in-out infinite; }
+.princess-cloud-2 { top: 50px; left: 60%; font-size: 24px; animation: zoo-drift 30s ease-in-out infinite reverse; }
+.princess-castle {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 52px;
+  opacity: 0.92;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.12));
+}
+.princess-bush { position: absolute; bottom: 15%; font-size: 46px; }
+.princess-bush-left { left: 2%; }
+.princess-bush-right { right: 2%; }
+.princess-flowers { position: absolute; bottom: 15%; font-size: 20px; letter-spacing: 2px; }
+.princess-flowers-left { left: 14%; }
+.princess-flowers-right { right: 14%; }
+.princess-grass {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16%;
+  background: linear-gradient(180deg, #C7EA9E, #9BDD70);
+}
+
+.princess-question-banner {
+  /* 質問バナーの基本レイアウトはzoo-question-bannerを再利用しつつ、
+     見出しに合わせて少し中央寄せの余白を調整 */
+}
+
+/* ---------- プリンセス本体（現在は仮のSVGイラスト） ---------- */
+.princess-stage {
+  position: absolute;
+  left: 50%;
+  top: 152px;
+  bottom: 14%;
+  transform: translateX(-50%);
+  width: min(84%, 340px);
+  z-index: 2;
+}
+
+.princess-illustration {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.12));
+}
+
+/* 実際にタップする、見た目に依存しない透明な当たり判定レイヤー。
+   将来イラストをPNG/WebPに差し替えても、このレイヤーの%座標を
+   調整するだけで対応できる。 */
+.princess-hotspots {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  /* コンテナ自体はクリックを拾わない。当たり判定のないすき間（ドレスなど）を
+     タップした時は、下のイラスト（princess-stage）側の「はずれ」判定に
+     ちゃんと届くようにするため。 */
+  pointer-events: none;
+}
+.princess-hotspot {
+  position: absolute;
+  background: transparent;
+  border-radius: 18px;
+  pointer-events: auto;
+  /* デバッグ時に当たり判定を可視化したい場合は下の行のコメントを外す */
+  /* background: rgba(255, 0, 0, 0.15); */
+}
+.princess-hotspot:active { background: rgba(255, 255, 255, 0.12); }
+
+.princess-fx-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* 正解した部位が光る「輪」の演出 */
+.princess-glow-ring {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 219, 88, 0.85) 0%, rgba(255, 219, 88, 0.35) 55%, rgba(255, 219, 88, 0) 75%);
+  animation: princess-glow-pulse 0.9s ease-out forwards;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes princess-glow-pulse {
+    0% { opacity: 0; transform: scale(0.6); }
+    35% { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 0; transform: scale(1.35); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .princess-glow-ring { animation: none; opacity: 0.8; }
+}
+
+/* キラキラ粒子 */
+.princess-sparkle {
+  position: absolute;
+  font-size: 20px;
+  animation: princess-sparkle-pop 0.9s ease-out forwards;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes princess-sparkle-pop {
+    0% { opacity: 0; transform: translate(0, 0) scale(0.4) rotate(0deg); }
+    30% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--sx, 20px), var(--sy, -30px)) scale(1) rotate(90deg); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .princess-sparkle { display: none; }
 }

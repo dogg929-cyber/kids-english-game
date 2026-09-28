@@ -18,6 +18,12 @@
     </h1>
     <p class="subtitle">Kids English Game — 2〜5さい向け</p>
 
+    <!-- Princess English：現在のメインゲーム。ホーム画面で一番目立つ位置に配置 -->
+    <button id="princess-start-btn" class="princess-launch-btn">
+      <span class="princess-launch-emoji">👸</span>
+      <span class="princess-launch-text">プリンセスと あそぶ！<br><span class="en">Princess English</span></span>
+    </button>
+
     <div class="category-grid">
       <button class="cat-btn cat-animals" data-category="animals">
         <span class="cat-emoji">🐶</span>
@@ -41,7 +47,9 @@
       🎯 クイズであそぶ！ <span class="en">Quiz Time</span>
     </button>
 
-    <button id="zoo-start-btn" class="quiz-launch-btn zoo-launch-btn">
+    <!-- Zoo Adventureは現在メイン機能として使用しないため非表示（削除はしていない）。
+         hidden属性を外せばいつでも再表示できる。 -->
+    <button id="zoo-start-btn" class="quiz-launch-btn zoo-launch-btn" hidden>
       🦁 どうぶつえんへ！ <span class="en">Zoo Adventure</span>
     </button>
   </div>
@@ -113,6 +121,140 @@
   </div>
 </section>
 
+<!-- ===================== Princess English（プリンセスの からだ さがしゲーム） ===================== -->
+<section id="screen-princess" class="screen princess-screen">
+  <button class="back-btn" data-target="screen-home">← もどる</button>
+  <div class="quiz-score-badge princess-score-badge">⭐️ <span id="princess-score">0</span></div>
+
+  <!-- 背景（お城の庭。装飾のみ・タップ不可） -->
+  <div class="princess-scenery" aria-hidden="true">
+    <div class="princess-sun">☀️</div>
+    <span class="princess-cloud princess-cloud-1">☁️</span>
+    <span class="princess-cloud princess-cloud-2">☁️</span>
+    <div class="princess-castle">🏰</div>
+    <div class="princess-bush princess-bush-left">🌳</div>
+    <div class="princess-bush princess-bush-right">🌳</div>
+    <div class="princess-flowers princess-flowers-left">🌷🌷🌷</div>
+    <div class="princess-flowers princess-flowers-right">🌷🌷🌷</div>
+    <div class="princess-grass"></div>
+  </div>
+
+  <!-- 質問バナー -->
+  <div class="zoo-question-banner princess-question-banner">
+    <button id="princess-replay-btn" class="zoo-replay-btn" aria-label="もういちど きく">🔊</button>
+    <div class="zoo-question-text">
+      <p class="quiz-question-en" id="princess-question-en">Where are her eyes?</p>
+      <p class="quiz-question-jp" id="princess-question-jp">めは どこ？</p>
+    </div>
+  </div>
+
+  <!-- プリンセス本体（現在は仮イラスト。将来PNG/WebPに差し替え可能） -->
+  <div id="princess-stage" class="princess-stage">
+    <svg class="princess-illustration" viewBox="0 0 300 500" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+      <!-- うしろの後光（装飾） -->
+      <ellipse class="p-aura" cx="150" cy="180" rx="150" ry="220" fill="url(#auraGradient)"/>
+      <defs>
+        <radialGradient id="auraGradient" cx="50%" cy="35%" r="65%">
+          <stop offset="0%" stop-color="#FFFDF3" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#FFFDF3" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- ドレス（スカート） -->
+      <path class="p-dress" d="M105,190 C60,260 25,360 15,430 C90,450 210,450 285,430 C275,360 240,260 195,190 Z" fill="#FF8FB1"/>
+      <path class="p-dress-shade" d="M150,190 L195,190 C220,250 245,330 260,400 C225,415 175,422 150,423 Z" fill="#FF74A0" opacity="0.55"/>
+      <circle class="p-dress-gem" cx="150" cy="215" r="10" fill="#FFE28A" stroke="#FFD24D" stroke-width="3"/>
+
+      <!-- そで -->
+      <circle class="p-sleeve-left" cx="90" cy="203" r="24" fill="#FF8FB1"/>
+      <circle class="p-sleeve-right" cx="210" cy="203" r="24" fill="#FF8FB1"/>
+
+      <!-- うで -->
+      <path class="p-arm-left" d="M78,215 C62,240 58,270 63,295 L88,295 C86,270 85,240 96,213 Z" fill="#FFDDC2"/>
+      <path class="p-arm-right" d="M222,215 C238,240 242,270 237,295 L212,295 C214,270 215,240 204,213 Z" fill="#FFDDC2"/>
+
+      <!-- あたま（かお） -->
+      <ellipse class="p-head" cx="150" cy="120" rx="52" ry="58" fill="#FFDDC2"/>
+
+      <!-- みみ -->
+      <ellipse class="p-ear-left" cx="93" cy="128" rx="12" ry="16" fill="#FFDDC2"/>
+      <ellipse class="p-ear-right" cx="207" cy="128" rx="12" ry="16" fill="#FFDDC2"/>
+
+      <!-- かみのけ -->
+      <path class="p-hair-top" d="M80,95 C80,35 220,35 220,95 C220,60 190,50 150,50 C110,50 80,60 80,95 Z" fill="#B5722E"/>
+      <path class="p-hair-left" d="M70,70 C58,110 58,180 72,235 C82,225 88,210 86,195 C78,155 78,115 90,80 Z" fill="#B5722E"/>
+      <path class="p-hair-right" d="M230,70 C242,110 242,180 228,235 C218,225 212,210 214,195 C222,155 222,115 210,80 Z" fill="#B5722E"/>
+
+      <!-- かんむり（装飾のみ） -->
+      <path class="p-crown" d="M124,52 L132,30 L144,48 L150,26 L156,48 L168,30 L176,52 Z" fill="#FFD24D" stroke="#F2B705" stroke-width="2"/>
+
+      <!-- め -->
+      <ellipse class="p-eye-left" cx="130" cy="116" rx="9" ry="11" fill="#3E3350"/>
+      <ellipse class="p-eye-right" cx="170" cy="116" rx="9" ry="11" fill="#3E3350"/>
+      <circle class="p-eye-highlight-left" cx="133" cy="112" r="2.6" fill="#FFFFFF"/>
+      <circle class="p-eye-highlight-right" cx="173" cy="112" r="2.6" fill="#FFFFFF"/>
+
+      <!-- はな -->
+      <path class="p-nose" d="M147,124 Q150,134 154,124" fill="none" stroke="#E8B896" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- くち -->
+      <path class="p-mouth" d="M132,142 Q150,156 168,142" fill="none" stroke="#E8637A" stroke-width="4" stroke-linecap="round"/>
+
+      <!-- て -->
+      <circle class="p-hand-left" cx="65" cy="300" r="15" fill="#FFDDC2"/>
+      <circle class="p-hand-right" cx="235" cy="300" r="15" fill="#FFDDC2"/>
+
+      <!-- ゆび -->
+      <ellipse class="p-finger-left-1" cx="57" cy="313" rx="4" ry="7" fill="#FFDDC2"/>
+      <ellipse class="p-finger-left-2" cx="65" cy="316" rx="4" ry="7" fill="#FFDDC2"/>
+      <ellipse class="p-finger-left-3" cx="73" cy="313" rx="4" ry="7" fill="#FFDDC2"/>
+      <ellipse class="p-finger-right-1" cx="227" cy="313" rx="4" ry="7" fill="#FFDDC2"/>
+      <ellipse class="p-finger-right-2" cx="235" cy="316" rx="4" ry="7" fill="#FFDDC2"/>
+      <ellipse class="p-finger-right-3" cx="243" cy="313" rx="4" ry="7" fill="#FFDDC2"/>
+
+      <!-- あし（スカートの すそから のぞく） -->
+      <rect class="p-leg-left" x="128" y="428" width="18" height="38" rx="8" fill="#FFF6ED"/>
+      <rect class="p-leg-right" x="154" y="428" width="18" height="38" rx="8" fill="#FFF6ED"/>
+
+      <!-- くつ -->
+      <ellipse class="p-foot-left" cx="137" cy="472" rx="20" ry="12" fill="#B18BFF"/>
+      <ellipse class="p-foot-right" cx="163" cy="472" rx="20" ry="12" fill="#B18BFF"/>
+    </svg>
+
+    <!-- 実際にタップする透明な当たり判定はJSで生成してここに挿入する -->
+    <div id="princess-hotspots" class="princess-hotspots"></div>
+
+    <!-- 正解演出（光る輪・キラキラ）を表示するレイヤー -->
+    <div id="princess-fx-layer" class="princess-fx-layer" aria-hidden="true"></div>
+  </div>
+
+  <!-- 発音練習オーバーレイ -->
+  <div id="princess-speak-overlay" class="zoo-speak-overlay" hidden>
+    <div class="zoo-speak-card">
+      <div class="speak-emoji" id="princess-speak-emoji">👸</div>
+      <div class="mic-icon" id="princess-mic-icon">🎤</div>
+      <p class="speak-prompt-sub">Can you say</p>
+      <p class="speak-prompt-word" id="princess-speak-word">EYES</p>
+      <p class="mic-status" id="princess-mic-status"></p>
+      <div class="speak-actions">
+        <button id="princess-hear-example-btn" class="quiz-replay-btn">🔊 おてほんを きく</button>
+      </div>
+      <button id="princess-skip-btn" class="skip-btn">つぎへ →</button>
+    </div>
+  </div>
+
+  <!-- ラウンド終了オーバーレイ -->
+  <div id="princess-round-complete" class="zoo-speak-overlay" hidden>
+    <div class="zoo-speak-card">
+      <div class="speak-emoji">👑</div>
+      <p class="speak-prompt-sub" style="font-size:20px;">やったね！</p>
+      <p class="mic-status" id="princess-round-score"></p>
+      <button id="princess-again-btn" class="quiz-launch-btn" style="margin-top:14px;">もういちど</button>
+      <button id="princess-home-btn" class="back-btn-solid" style="margin-top:12px;">ホームへ</button>
+    </div>
+  </div>
+</section>
+
 <!-- ===================== Zoo Adventure（動物園さがしゲーム） ===================== -->
 <section id="screen-zoo" class="screen zoo-screen">
   <button class="back-btn" data-target="screen-home">← もどる</button>
@@ -176,5 +318,6 @@
 <script src="speech.js"></script>
 <script src="app.js"></script>
 <script src="zoo.js"></script>
+<script src="princess.js"></script>
 </body>
 </html>
