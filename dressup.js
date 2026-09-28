@@ -37,17 +37,22 @@
  *     単独で重ね描画される本物の独立レイヤー実装（hasAssetの「全身丸ごと
  *     上書き」とは異なり、正解タップのたびにCrownだけが交換される）。
  *     HAIR/DRESS/SHOESはまだ全身画像(hasAsset)のみでlayerPath未設定。
- *   - 【重要な既知の制約：全身画像とCrownレイヤーの優先表示】 HAIR/DRESSの
- *     画像は「もう片方のカテゴリー込みの全身portrait」（HAIR画像=Purple
- *     Dress+Gold Crown固定、DRESS画像=Long Hair+Gold Crown固定）であり、
- *     どちらも元からGold Crown相当が焼き込まれている。そのためCrown
- *     レイヤーは、SHOES/DRESSの全身画像がPreviewに表示されている間は
- *     二重王冠を避けるため必ず非表示になる（WHOLE_BODY_PRIORITYが
- *     SHOES/DRESSを優先する間、CROWNは独立レイヤーとして見せられない）。
+ *   - 【重要な既知の制約：HAIRの全身画像とCrownレイヤーの優先表示】
+ *     DRESSは2回目のリクエストでCrownなしの素材（Pink/Blue/Yellow、
+ *     assets/dressup/dresses/*.webp）に差し替え済みのため、DRESSと
+ *     CROWNは完全に独立して同時成立する（Dressを変えてもCrownは消えず、
+ *     Crownを変えてもDressは変わらない）。一方HAIRの画像（Purple Dress
+ *     +Gold Crown固定の全身portrait）は元から王冠が焼き込まれた
+ *     ままなので、HAIRの全身画像がPreviewに表示されている間
+ *     （＝まだDRESSを選んでいない間）は、二重王冠を避けるため
+ *     Crownレイヤーを必ず非表示にする。これは各アイテムの
+ *     `crownBaked`フラグ（trueならCrown同時表示を禁止）による
+ *     データ駆動の判定で、WHOLE_BODY_PRIORITY（shoes > dress > hair）
+ *     で選ばれた全身画像のcrownBakedを見るだけで済むようにしてある。
  *     dressup.equipped.crown/hair自体はきちんと保持されたままなので、
  *     Look Badge／選択肢カードの金枠+✓には正しく反映され続ける。
- *     詳細と将来の完全解消への移行方針（Crownなし版Dress/Shoes素材が
- *     必要）は assets/dressup/README.md、および computeDressupVisual /
+ *     詳細と将来の完全解消への移行方針（Crownなし版Hair素材が必要）は
+ *     assets/dressup/README.md、および computeDressupVisual /
  *     handleDressUpChoiceTap内のコメントを参照。
  */
 (function () {
@@ -106,6 +111,11 @@
           assetPath: "assets/dressup/hair/long.webp",
           thumbPath: "assets/dressup/hair/long_thumb.webp",
           hasAsset: true,
+          // この全身画像には元からGold Crown相当が焼き込まれている。
+          // Crownレイヤーと同時表示すると二重王冠になるため、この画像が
+          // Baseレイヤーに表示されている間はCrownレイヤーを必ず隠す
+          // （computeDressupVisual参照）。
+          crownBaked: true,
         },
         {
           id: "ponytail",
@@ -117,6 +127,7 @@
           assetPath: "assets/dressup/hair/ponytail.webp",
           thumbPath: "assets/dressup/hair/ponytail_thumb.webp",
           hasAsset: true,
+          crownBaked: true,
         },
         {
           id: "braids",
@@ -128,6 +139,7 @@
           assetPath: "assets/dressup/hair/braids.webp",
           thumbPath: "assets/dressup/hair/braids_thumb.webp",
           hasAsset: true,
+          crownBaked: true,
         },
       ],
     },
@@ -145,9 +157,17 @@
           icon: "👑",
           layerPath: "assets/dressup/crowns/gold.webp",
           thumbPath: "assets/dressup/crowns/gold.webp",
-          // #dressup-layer-crown へ適用するCSS位置（Base Princessの頭部に
-          // 個別合わせ。Playwrightスクリーンショットで目視確認・微調整済み）。
-          crownStyle: { top: "3.6%", left: "37.3%", width: "26%" },
+          // #dressup-layer-crown へ適用するCSS位置。Baseレイヤーに表示中の
+          // 画像（bodyKey: base/pink/blue/yellow）ごとに頭の位置が微妙に
+          // 違うため、bodyKeyごとに個別値を持つ（Playwrightスクリーン
+          // ショットで目視確認・調整済み。pink/blue/yellowはbaseと
+          // ほぼ同じポーズだったため実質同値で問題なかった）。
+          crownStyle: {
+            base: { top: "3.6%", left: "37.3%", width: "26%" },
+            pink: { top: "3.6%", left: "37.3%", width: "26%" },
+            blue: { top: "3.6%", left: "37.3%", width: "26%" },
+            yellow: { top: "3.6%", left: "37.3%", width: "26%" },
+          },
         },
         {
           id: "flower",
@@ -158,7 +178,12 @@
           icon: "🌸",
           layerPath: "assets/dressup/crowns/flower.webp",
           thumbPath: "assets/dressup/crowns/flower.webp",
-          crownStyle: { top: "3.8%", left: "35.5%", width: "29.5%" },
+          crownStyle: {
+            base: { top: "3.8%", left: "35.5%", width: "29.5%" },
+            pink: { top: "3.8%", left: "35.5%", width: "29.5%" },
+            blue: { top: "3.8%", left: "35.5%", width: "29.5%" },
+            yellow: { top: "3.8%", left: "35.5%", width: "29.5%" },
+          },
         },
         {
           id: "purple",
@@ -169,7 +194,12 @@
           icon: "👑",
           layerPath: "assets/dressup/crowns/purple.webp",
           thumbPath: "assets/dressup/crowns/purple.webp",
-          crownStyle: { top: "3.2%", left: "37.6%", width: "25.3%" },
+          crownStyle: {
+            base: { top: "3.2%", left: "37.6%", width: "25.3%" },
+            pink: { top: "3.2%", left: "37.6%", width: "25.3%" },
+            blue: { top: "3.2%", left: "37.6%", width: "25.3%" },
+            yellow: { top: "3.2%", left: "37.6%", width: "25.3%" },
+          },
         },
       ],
     },
@@ -187,6 +217,10 @@
           icon: "👗",
           assetPath: "assets/dressup/dresses/pink.webp",
           hasAsset: true, // 実画像あり：正解タップでPrincess Previewがこの画像に変身する
+          // この全身画像はCrownなしで作り直した素材（2回目のリクエストで
+          // 差し替え）。crownBakedを付けないことで、DRESS表示中も
+          // Crownレイヤーを独立して重ねられる（二重王冠にならない）。
+          bodyKey: "pink",
         },
         {
           id: "blue",
@@ -197,6 +231,7 @@
           icon: "👗",
           assetPath: "assets/dressup/dresses/blue.webp",
           hasAsset: true,
+          bodyKey: "blue",
         },
         {
           id: "yellow",
@@ -207,6 +242,7 @@
           icon: "👗",
           assetPath: "assets/dressup/dresses/yellow.webp",
           hasAsset: true,
+          bodyKey: "yellow",
         },
       ],
     },
@@ -345,48 +381,89 @@
 
   /**
    * 現在のdressup.equippedから、実際に描画すべき見た目を1つ計算する。
-   * 戻り値: { bodySrc, showCrownLayer, crownItem }
+   * 戻り値: { bodySrc, showCrownLayer, crownItem, bodyKey }
    *
    *   bodySrc         Baseレイヤー（#dressup-preview-img）に表示する画像。
    *   showCrownLayer  #dressup-layer-crownを表示してよいかどうか。
    *   crownItem       showCrownLayerがtrueのとき、表示すべきCrownアイテム。
+   *   bodyKey         今表示しているbodySrcの種類（"base"/"pink"/"blue"/
+   *                   "yellow"）。Crownの頭位置(crownStyle)はbodySrcごとに
+   *                   微妙に違うため、applyCrownLayerがこれを見て
+   *                   crownItem.crownStyle[bodyKey]を選ぶ。
    *
-   * 【判定ロジックと「二重王冠」対策】
-   * SHOES/DRESSの全身画像（hasAsset:true）が選ばれている場合は最優先で
-   * それを表示する。これらの画像には最初からGold Crown相当が焼き込まれて
-   * いるため、その上にCrownレイヤーを重ねると二重王冠になってしまう
-   * ＝ showCrownLayer は必ずfalseにする（ご指示の「二重王冠は絶対禁止」を
-   * 最優先で守るため）。
-   * 次にCROWNが選ばれていれば、CrownなしのBase Princess
-   * （assets/dressup/base/base.webp）をBaseレイヤーに表示し、その上に
-   * 選んだCrownレイヤーを重ねる＝本物の「着せ替え」になる。
-   * CROWNが未選択でHAIRの全身画像があればそれを表示する（これはCrownが
-   * 選ばれるまでの、これまでと全く同じ見た目を維持するための分岐）。
+   * 【判定ロジックと「二重王冠」対策（データ駆動）】
+   * SHOES/DRESSの全身画像（hasAsset:true、HAIRは除く）が選ばれている
+   * 場合は最優先で表示する。その画像がitem.crownBaked===trueなら
+   * （＝元から王冠が焼き込まれた画像、現在はHAIRの3枚のみ。ただしHAIRは
+   * このSHOES/DRESSチェックには含めず、常に3番目の分岐で扱う）、Crown
+   * レイヤーを重ねると二重王冠になるため必ず非表示にする（ご指示の
+   * 「二重王冠は絶対禁止」を最優先）。crownBakedが付いていない全身画像
+   * （現在はDRESSのPink/Blue/Yellow。2回目のリクエストでCrownなし素材に
+   * 差し替え済み）は、Crownレイヤーと安全に共存できるため、
+   * equipped.crownがあればそのまま独立レイヤーとして重ねる＝
+   * 「Dress×Crownが同時に成立する」。
+   * SHOES/DRESSが未選択でCROWNが選ばれていれば、CrownなしのBase
+   * Princess（assets/dressup/base/base.webp）をBaseレイヤーに表示し、
+   * その上に選んだCrownレイヤーを重ねる（＝まだHAIRの全身画像しか無い
+   * 状態より、CROWNが選ばれていることを優先する）。
+   * CROWNも未選択でHAIRの全身画像があればそれを表示する（Crownが
+   * 選ばれるまでの、これまでと同じ見た目を維持するための分岐）。
    * 何も選ばれていなければBase Princessのまま。
    *
-   * 【既知の制約】SHOES/DRESSが選ばれるとCrownレイヤーは非表示になる
-   * （dressup.equipped.crown自体は保持されたまま。Look Badge/選択肢カード
-   * の金枠には影響しない）。これはSHOES/DRESSの全身画像に元から別の
-   * 王冠が焼き込まれており、二重王冠を避けるには「Crownなし版の
-   * Dress/Shoes全身画像」が別途必要なため。詳細はREADME参照。
+   * 優先順位まとめ：SHOES/DRESS(crownBaked時はCrown強制非表示) >
+   * CROWN(Base Princess+Crownレイヤー) > HAIR(crown常に非表示) > 無地。
+   *
+   * 【既知の制約（HAIRのみ残存）】HAIRの全身画像がBaseレイヤーに
+   * 表示されている間（＝まだDRESS/CROWNを選んでいない状態）は、上記の
+   * 通りCrownレイヤーが非表示になる（dressup.equipped.crown自体は
+   * 保持されたまま。Look Badge/選択肢カードの金枠には影響しない）。
+   * これはHAIR画像に元から別の王冠が焼き込まれており、二重王冠を避ける
+   * には「Crownなし版のHair全身画像」が別途必要なため。詳細はREADME参照。
    */
   function computeDressupVisual() {
+    const crownItem = dressup.equipped.crown;
+    const hasCrown = !!(crownItem && crownItem.layerPath);
+
+    // 1. SHOES/DRESSの全身画像(hair以外)を優先順位順にチェックする。
+    //    hairはここでは意図的にスキップする＝下のCROWN判定より優先度を
+    //    下げるため（CROWNが選ばれていれば、単に選ばれているだけのHAIRの
+    //    全身画像より優先してBase Princess+Crownを見せたい）。
     for (const catId of WHOLE_BODY_PRIORITY) {
-      if (catId === "hair") break; // hairは下で別扱い（crownとの優先順位のため）
+      if (catId === "hair") continue;
       const item = dressup.equipped[catId];
       if (item && item.hasAsset && item.assetPath) {
-        return { bodySrc: item.assetPath, showCrownLayer: false, crownItem: null };
+        if (item.crownBaked) {
+          // 二重王冠防止：この全身画像には既に王冠が焼き込まれているため
+          // Crownレイヤーは必ず非表示にする。
+          return { bodySrc: item.assetPath, showCrownLayer: false, crownItem: null, bodyKey: null };
+        }
+        // crownBakedが付いていない全身画像（Pink/Blue/Yellow Dress）は
+        // Crownレイヤーと安全に共存できる。
+        return {
+          bodySrc: item.assetPath,
+          showCrownLayer: hasCrown,
+          crownItem: hasCrown ? crownItem : null,
+          bodyKey: item.bodyKey || "base",
+        };
       }
     }
-    const crownItem = dressup.equipped.crown;
-    if (crownItem && crownItem.layerPath) {
-      return { bodySrc: DRESSUP_BASE_IMAGE, showCrownLayer: true, crownItem };
+
+    // 2. SHOES/DRESSが未選択でCROWNが選ばれていれば、CrownなしのBase
+    //    Princessの上にCrownレイヤーを重ねる（まだHAIRの全身画像しか
+    //    無い状態より、こちらを優先する）。
+    if (hasCrown) {
+      return { bodySrc: DRESSUP_BASE_IMAGE, showCrownLayer: true, crownItem, bodyKey: "base" };
     }
+
+    // 3. CROWNも未選択でHAIRの全身画像があればそれを表示する（Crownが
+    //    選ばれるまでの、これまでと同じ見た目を維持するための分岐。
+    //    HAIR画像は常にcrownBaked扱いなのでCrownレイヤーは表示しない）。
     const hairItem = dressup.equipped.hair;
     if (hairItem && hairItem.hasAsset && hairItem.assetPath) {
-      return { bodySrc: hairItem.assetPath, showCrownLayer: false, crownItem: null };
+      return { bodySrc: hairItem.assetPath, showCrownLayer: false, crownItem: null, bodyKey: null };
     }
-    return { bodySrc: DRESSUP_BASE_IMAGE, showCrownLayer: false, crownItem: null };
+
+    return { bodySrc: DRESSUP_BASE_IMAGE, showCrownLayer: false, crownItem: null, bodyKey: "base" };
   }
 
   function prefersReducedMotion() {
@@ -451,17 +528,23 @@
   /**
    * メインプレビュー／発音練習／完成の3枚すべてのCrownレイヤー<img>を、
    * computeDressupVisual()の結果に合わせて同期する（「発音画面に進んでも
-   * Crownを外さないこと」という要件のため、3枚とも常に同じ見た目に保つ）。
-   * 表示する場合は、そのCrownアイテムのcrownStyle（Base Princessの頭部に
-   * 合わせて個別調整したtop/left/width）を毎回適用し直す（Crownごとに
-   * 形もサイズも違うため、共通のCSS数値を無理に共有しない）。
+   * Crownを外さないこと」「DRESSを変えてもCrownを外さないこと」という
+   * 要件のため、3枚とも常に同じ見た目に保つ）。
+   * 表示する場合は、そのCrownアイテムのcrownStyle（頭の位置に合わせて
+   * 個別調整したtop/left/width）を毎回適用し直す。crownStyleは
+   * bodyKey（今Baseレイヤーに表示中の画像の種類："base"/"pink"/"blue"/
+   * "yellow"）ごとの値を持つオブジェクトになっており、Dress画像ごとに
+   * 微妙に違う頭の位置に合わせて個別に選ばれる（見つからない場合は
+   * baseの値にフォールバック）。Crownごとに形もサイズも違うため、
+   * 共通のCSS数値を無理に共有しない。
    * playPop=trueのとき、装着/交換の瞬間の「魔法でポンッ」演出
    * （dressup-crown-pop、0.3秒・opacity+均一scaleのみ）を発火する。
    */
   function applyCrownLayer(visual, playPop) {
     crownLayerEls.forEach((el) => {
       if (visual.showCrownLayer && visual.crownItem && visual.crownItem.layerPath) {
-        const style = visual.crownItem.crownStyle || {};
+        const styleMap = visual.crownItem.crownStyle || {};
+        const style = styleMap[visual.bodyKey] || styleMap.base || {};
         el.style.top = style.top || "4%";
         el.style.left = style.left || "37%";
         el.style.width = style.width || "26%";
@@ -774,24 +857,26 @@
     // フェード＋scaleと、プレビュー自身の上に咲くsparkleで演出する。
     //
     // 【重要：Hair × Dressの組み合わせについて】
-    // 現在のHAIR画像は「Purple Dress + 選んだ髪型」の全身portrait、
-    // DRESS画像は「Long Hair + 選んだドレス色」の全身portraitであり、
-    // どちらも“もう片方のカテゴリー込みの完成画像”しか無い（髪だけ・
-    // ドレスだけの透明レイヤー素材ではない＝layerPath未設定）。そのため
-    // 今の実装は「WHOLE_BODY_PRIORITY（shoes > dress > hair）に従って
-    // 1枚だけを portrait 全体として表示する」方式にしてある。現状DRESSが
-    // HAIRより優先されるため、実際には
-    //   HAIRを選ぶ → Previewがその髪型のportraitに変身
-    //   DRESSを選ぶ → Previewがそのドレス色のportraitに変身
-    //                 （＝見た目上は選んだ髪型が消え、Dress画像に
-    //                   焼き込まれているLong Hairに戻って見える）
+    // 現在のHAIR画像は「Purple Dress + Gold Crown + 選んだ髪型」の全身
+    // portraitであり、髪だけの透明レイヤー素材ではない（layerPath未設定）。
+    // 一方DRESS画像（Pink/Blue/Yellow）は2回目のリクエストでCrownなし素材
+    // に差し替え済みで、Hairは含まれていない（Long Hair固定ですらない、
+    // Crownと同様に独立ではないだけ）。そのため今の実装は
+    // 「WHOLE_BODY_PRIORITY（shoes > dress > hair）に従って1枚だけを
+    // portrait全体として表示する」方式のまま。現状DRESSがHAIRより優先
+    // されるため、実際には
+    //   HAIRを選ぶ → Previewがその髪型のportrait（Gold Crown込み）に変身
+    //   DRESSを選ぶ → Previewがそのドレス色のportrait（Crownなし）に変身
+    //                 （＝見た目上は選んだ髪型が消える。ただしCrownは
+    //                   下記の通りDRESS画像がCrownなしになったため
+    //                   引き続き独立レイヤーとして重なり続ける）
     // という挙動になる。dressup.equipped.hair 自体はそのままきちんと
     // 保持されており（Look Badgeの「HAIR達成」表示やスコアには影響
     // しない）、あくまで“今表示されている見た目”だけがDress優先になる、
-    // という仕様上の制約。将来、髪だけ／ドレスだけの透明レイヤー素材
-    // （同一base・同一座標）が揃った場合は、そのアイテムに
-    // layerPath/layerSlotを設定するだけでWHOLE_BODY_PRIORITYより優先され
-    // ず独立表示に切り替わる（コード変更不要。assets/dressup/README.md参照）。
+    // という仕様上の制約。将来、髪だけの透明レイヤー素材（同一base・
+    // 同一座標）が揃った場合は、そのアイテムにlayerPath/layerSlotを
+    // 設定するだけでWHOLE_BODY_PRIORITYより優先されず独立表示に切り替わる
+    // （コード変更不要。assets/dressup/README.md参照）。
     const nextVisual = computeDressupVisual();
     if (nextVisual.bodySrc !== dressup.activePortraitSrc && previewImgEl) {
       const previewCenter = elementRelativeCenter(previewImgEl);
@@ -802,15 +887,22 @@
       swapDressUpPreviewImage(nextVisual.bodySrc);
     }
 
-    // CROWNレイヤーの反映。【重要：二重王冠の防止】SHOES/DRESSの全身画像は
-    // 最初からGold Crown相当が焼き込まれているため、それらがBaseレイヤーに
-    // 表示されている間はCrownレイヤーを必ず非表示にする
+    // CROWNレイヤーの反映。【重要：二重王冠の防止（データ駆動）】
+    // 今Baseレイヤーに表示されている全身画像がitem.crownBaked===trueの
+    // 場合のみ（現在はHAIRの3枚のみ）、Crownレイヤーを必ず非表示にする
     // （computeDressupVisual内でshowCrownLayer:falseとして保証している。
-    // ご指示の「絶対に二重王冠にしない」を最優先している）。そのため
-    // SHOES/DRESSを選んだ瞬間、直前まで見えていたCrownは見た目上消える
-    // （dressup.equipped.crown自体は保持され、Look Badge/選択肢カードの
-    // 金枠には影響しない）。Crownを選んだ瞬間・別のCrownに交換した瞬間
-    // だけ、「魔法でポンッ」の装着演出（dressup-crown-pop）を発火する。
+    // ご指示の「絶対に二重王冠にしない」を最優先している）。DRESS
+    // （Pink/Blue/Yellow）は2回目のリクエストでCrownなし素材に差し替え
+    // 済みのためcrownBakedを持たず、equipped.crownがあればDRESS表示中も
+    // Crownレイヤーがそのまま独立して重なり続ける（＝Dress×Crownが
+    // 同時に成立し、Dressを変えてもCrownは消えない）。HAIRを選んだ瞬間
+    // （まだDRESS未選択の間）だけ、直前まで見えていたCrownは見た目上
+    // 消える（dressup.equipped.crown自体は保持され、Look Badge/選択肢
+    // カードの金枠には影響しない）。Crownを選んだ瞬間・別のCrownに交換
+    // した瞬間だけ、「魔法でポンッ」の装着演出（dressup-crown-pop）を
+    // 発火する（Dressだけを変えてCrown自体は変わっていない場合は
+    // ポップインを再生しない＝「Crownを変えてもDressは変えない、逆も
+    // 同様」という要件どおり、それぞれの変化だけを独立して演出する）。
     const crownVisibleChanged =
       nextVisual.showCrownLayer &&
       (!prevVisual.showCrownLayer || !prevVisual.crownItem || prevVisual.crownItem.id !== nextVisual.crownItem.id);
@@ -1132,4 +1224,35 @@
     const el = document.getElementById(id);
     if (el) el.classList.add("active");
   }
+
+  /**
+   * 【テスト専用フック】window.__dressupDebug
+   * 現在のクイズは固定順(HAIR→CROWN→DRESS→SHOES)で1カテゴリーにつき1問しか
+   * 出題されないため、「DRESSを選び終えた後に、別のCrownへ架け替える」
+   * （＝将来のFREE DRESS UPモードで起きる操作）は、実際のカード操作だけでは
+   * 再現できない。dressup.equippedを直接書き換えてrenderDressUpPreview()を
+   * 再実行するだけの薄いテスト用フックをここに公開し、Playwrightから
+   * 「Dressを変えてもCrownは消えない／Crownを変えてもDressは変わらない」
+   * という中核要件を、実際のレンダリング関数(computeDressupVisual /
+   * applyCrownLayer)を通して直接検証できるようにする。ゲーム画面のUIや
+   * ボタンからは一切呼ばれない、副作用のない検証専用のAPI。
+   */
+  window.__dressupDebug = {
+    equip: function (catId, itemId) {
+      const category = findCategory(catId);
+      if (!category) return false;
+      const item = category.items.find((i) => i.id === itemId);
+      if (!item) return false;
+      dressup.equipped[catId] = item;
+      renderDressUpPreview();
+      return true;
+    },
+    getEquipped: function () {
+      const out = {};
+      Object.keys(dressup.equipped).forEach((k) => {
+        out[k] = dressup.equipped[k] ? dressup.equipped[k].id : null;
+      });
+      return out;
+    },
+  };
 })();

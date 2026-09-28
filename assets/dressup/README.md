@@ -41,9 +41,15 @@ Look Badgesと選択肢カードの金枠+✓（`.dressup-option-equipped`）は
   頭〜髪型部分だけを切り出した `hair/long_thumb.webp` / `ponytail_thumb.webp`
   / `braids_thumb.webp` があり、選択肢カードは色スウォッチではなく実写の
   頭部サムネイルで表示される（文字が読めなくても写真で選べる）。
-- **DRESS（ドレス）：実画像を導入済み**
-  `dresses/pink.webp` / `dresses/blue.webp` / `dresses/yellow.webp`
-  （いずれもLong Hair + そのドレス色の全身portrait）。
+- **DRESS（ドレス）：実画像を導入済み（2回目のリクエストでCrownなし素材に
+  差し替え済み）**
+  `dresses/pink.webp` / `dresses/blue.webp` / `dresses/yellow.webp`。
+  **初回導入時はLong Hair + Gold Crown込みの全身portraitだったが、
+  2回目のリクエストで「かんむりなしで作り直した」新素材（Pink/Blue/Yellow
+  それぞれ単独ポーズ、髪型はロングだが王冠は焼き込まれていない）に
+  完全差し替え済み。** これにより、DRESS表示中もCROWNの独立レイヤーを
+  二重王冠なしで重ねられるようになった（詳細は下記「CROWNの実装」・
+  「DRESS×CROWNの独立性」）。
   正解タップの瞬間、Princess Previewがこの画像に「変身」する（fade+scale、
   横スライドなし）。以後、発音練習・Great job・次のカテゴリー・完成画面まで
   同じ画像を維持し、PLAY AGAINでベース画像に戻る。
@@ -59,10 +65,12 @@ Look Badgesと選択肢カードの金枠+✓（`.dressup-option-equipped`）は
 
 ### ⚠️ HAIR × DRESS の組み合わせに関する既知の制約
 
-HAIRとDRESSの画像は、どちらも**「もう片方のカテゴリー込みの全身portrait」**
-であり、髪だけ／ドレスだけを切り抜いた透明レイヤー素材（`layerPath`）
-ではありません（HAIR画像は全部Purple Dress固定、DRESS画像は全部
-Long Hair固定）。
+HAIRの画像は「Purple Dress + Gold Crown込みの全身portrait」であり、
+髪だけを切り抜いた透明レイヤー素材（`layerPath`）ではありません
+（HAIR画像は全部Purple Dress固定）。DRESSの画像は2回目のリクエストで
+Crownなし素材に差し替え済みですが、それでも「その色のドレスを着た
+全身portrait」であり、髪型だけを独立して選べる透明レイヤーではない点は
+変わりません。
 
 そのため今の実装は、`layerPath`を持たない「全身画像(`hasAsset:true`)」の
 アイテムが複数equippedされている場合、`dressup.js`内の
@@ -73,24 +81,28 @@ Long Hair固定）。
 hair より優先されるため、ゲームの出題順HAIR→CROWN→DRESS→SHOESでは
 実際の見え方は：
 
-1. HAIRを選ぶ → Previewがその髪型のportrait（Purple Dress込み）に変身
+1. HAIRを選ぶ → Previewがその髪型のportrait（Purple Dress+Gold Crown込み）
+   に変身
 2. CROWNを選ぶ → Base Princess（かんむり無し）＋選んだかんむりの独立
    レイヤーに切り替わる（実装済み。詳細は下記）
-3. **DRESSを選ぶ → Previewがそのドレス色のportrait（Long Hair込み）に
-   変身し、直前まで表示されていた選択した髪型・かんむりは見た目上消えて
-   Dress画像に焼き込まれたLong Hair＋Gold Crownに戻る**
-4. SHOESは仮素材なので見た目は変わらない（Dress画像のまま）
-5. 完成画面も最後に変身したDress画像のまま
+3. **DRESSを選ぶ → Previewがそのドレス色のportrait（Crownなし）に
+   変身し、直前まで表示されていた選択した髪型は見た目上消える。
+   ただしCROWNは2回目のリクエストでDRESS素材がCrownなしになったため、
+   引き続き独立レイヤーとして正しく重なり続ける（下記「DRESS×CROWNの
+   独立性」参照）**
+4. SHOESは仮素材なので見た目は変わらない（Dress+Crownのまま）
+5. 完成画面も最後に変身したDress画像＋Crownのまま
 
 **選んだHairのアイテム自体は`dressup.equipped.hair`にきちんと保持され
 続けており**（Look Badgeの「HAIR達成」表示や選択肢カードの金枠+✓、
 スコアには一切影響しません）、失われるのは「同時に見た目へ反映する
 こと」だけです。
 
-これを解消するには、HAIR/CROWN/DRESS/SHOESそれぞれを**同一のbase
-portrait・同一座標**の上に重ねられる、**髪だけ／ドレスだけを切り抜いた
-透明レイヤー素材**（上記「見た目のレイヤー合成」・下記「想定する構造」）
-が必要です。現在の画像からそのような高品質な透明レイヤーを機械的に
+これを解消するには、HAIR/SHOESそれぞれを**同一のbase portrait・同一
+座標**の上に重ねられる、**髪だけを切り抜いた透明レイヤー素材**（上記
+「見た目のレイヤー合成」・下記「想定する構造」）が必要です（DRESSは
+今回の差し替えで実質的にCrownとの独立を達成済みだが、HAIRとの独立は
+まだ未解決）。現在の画像からそのような高品質な透明レイヤーを機械的に
 生成するのは、顔・耳・首まわりの境界が不自然になるリスクが高く実施して
 いません（無理に合成して品質を落とすよりも、現状の
 「全身差し替え・優先順位」方式を暫定仕様として採用しています）。
@@ -116,41 +128,71 @@ opacity+均一scaleのみ、prefers-reduced-motionで無効化）。
 **位置調整はPlaywrightスクリーンショットで実測・目視確認済み**
 （`crownStyle`の値はBase Princessの頭部の実際のalphaチャンネル解析と
 スクリーンショット目視の両方で検証し、初回の推定値のまま調整不要だった）。
+`crownStyle`は今表示中のBaseレイヤー画像の種類（`bodyKey`:
+`"base"`/`"pink"`/`"blue"`/`"yellow"`）ごとに個別の値を持てる構造になって
+いる（下記「DRESS×CROWNの独立性」で理由を説明）。現状は4種類とも
+実質同じ頭の位置・ポーズだったため同値のままで問題なかったが、将来
+異なるポーズのDress素材を追加する場合はbodyKeyごとに調整できる。
 
-### ⚠️ CROWN × DRESS/SHOESの組み合わせに関する既知の制約（二重王冠の防止を最優先）
+### ✅ DRESS×CROWNの独立性（2回目のリクエストで実装。二重王冠の防止はデータ駆動に）
 
-`princess.webp`（旧ベース）・`hair/*.webp`・`dresses/*.webp`は、すべて
-すでに金色のかんむり（Gold Crown相当）が焼き込まれた全身画像である
-（`base/base.webp`だけがかんむり無し）。そのため、SHOES/DRESSの
-全身画像（`hasAsset:true`、`WHOLE_BODY_PRIORITY`経由でPrincess Preview
-全体に表示される）がアクティブな間、CROWNの独立レイヤーを重ねると
-「元から焼き込まれたかんむり」と「新しいCrownレイヤー」が二重表示
-されてしまう。これは今回のご指示で明確に禁止されている状態のため、
-`computeDressupVisual()`は**SHOES/DRESSの全身画像がアクティブな間は
-必ずCrownレイヤーを非表示にする**（`showCrownLayer:false`）よう実装
-している——「二重王冠は絶対禁止」を「Crownが消えないこと」より優先する
-判断。
+初回実装時はDRESS画像（Pink/Blue/Yellow）にもGold Crown相当が焼き込まれて
+いたため、二重王冠を避けるためDRESS表示中はCrownレイヤーを常に非表示に
+していた。**2回目のリクエストで、ユーザーから「王冠なしで作り直した」新しい
+Pink/Blue/Yellow Dress素材が提供され、`dresses/*.webp`をこの新素材に
+完全差し替えした。** これにより、DRESSとCROWNは完全に独立して同時成立する
+ようになった：
 
-具体的な見え方（実際にPlaywrightで確認済み。`05-flower-blue-dress.png`）：
+- Pink Dress + Gold Crown / Flower Crown / Purple Crown
+- Blue Dress + Gold Crown / Flower Crown / Purple Crown
+- Yellow Dress + Gold Crown / Flower Crown / Purple Crown
+
+の9通りすべてが二重王冠なしで成立する（Playwrightで確認済み。
+`combo-blue-flower.png` / `combo-pink-purple.png` / `combo-yellow-gold.png`）。
+**Dressを変更してもCrownは消えず、Crownを変更してもDressは変わらない**
+（`equipped.dress`と`equipped.crown`は完全に独立したまま、それぞれの
+見た目も両方同時にレンダリングされる）。
+
+二重王冠の防止ロジックは、DRESS/SHOES固有のハードコードではなく、
+各アイテムの**`crownBaked`フラグ**によるデータ駆動判定に統一されている
+（`computeDressupVisual()`参照）：
+
+- `crownBaked: true` のアイテム（現在はHAIRの3枚のみ）が表示中の場合、
+  Crownレイヤーは必ず非表示になる（二重王冠防止）。
+- `crownBaked`が付いていないアイテム（現在は新しくなったDRESSの
+  Pink/Blue/Yellow）が表示中の場合、Crownレイヤーは`equipped.crown`が
+  あればそのまま独立レイヤーとして重なる。
+
+そのため、将来SHOESに実画像を追加する場合も、その画像が王冠を含まない
+素材であれば`crownBaked`を付けないだけでCrownとの同時表示に対応できる
+（コード変更不要）。
+
+### ⚠️ HAIR × CROWNの組み合わせに関する既知の制約（HAIRのみ残存）
+
+HAIRの画像（`hair/*.webp`）は元から金色のかんむり（Gold Crown相当）が
+焼き込まれた全身画像のままなので（`crownBaked: true`）、HAIRの全身画像が
+表示されている間（＝まだDRESSを選んでいない状態）は、二重王冠を避ける
+ためCrownレイヤーが非表示になる：
 
 1. HAIRを選ぶ → Previewがその髪型のportrait（かんむり焼き込み済み）に変身
-2. CROWN（例：Flower Crown）を選ぶ → 髪型のportraitが一旦Base Princess
+2. CROWN（例：Flower Crown）を選ぶ → HAIRのportraitが一旦Base Princess
    ＋Flowerかんむりレイヤーに切り替わり、正しく表示される（二重表示なし）
 3. **DRESS（例：Blue Dress）を選ぶ → Previewがそのドレス色のportrait
-   （かんむり焼き込み済み）に変身し、直前まで表示されていたFlowerかんむりは
-   見た目上消える**（Dress画像に元から焼き込まれた金のティアラが見える）
-4. SHOESも同様（実画像追加時）
-5. 完成画面も最後に変身したDress画像のまま
+   （Crownなし新素材）に変身し、直前まで表示されていたFlowerかんむりは
+   そのまま独立レイヤーとして表示され続ける**（二重王冠にならない。
+   `combo-blue-flower.png`で確認済み）
+4. SHOESも同様（実画像追加時、crownBakedを付けなければCrown維持）
+5. 完成画面も最後に変身したDress画像＋Crownのまま
 
-**`dressup.equipped.crown`自体はきちんと`flower`のまま保持され続けており**
+**`dressup.equipped.crown`自体はHAIR表示中も保持され続けており**
 （Look Badgeの「CROWN達成」表示・選択肢カードの金枠+✓・スコアには一切
-影響しない）、失われるのは「Dress/Shoes表示中に同時に見た目へ反映する
-こと」だけ——HAIR×DRESSと全く同じ種類の制約である。
+影響しない）、失われるのは「HAIR表示中に同時に見た目へ反映すること」
+だけ——HAIR×DRESSと全く同じ種類の制約である。
 
-これを解消するには、DRESS/SHOESそれぞれに**かんむりを含まない**全身画像
-（または髪と同じく「ドレスだけ」を切り抜いた独立透明レイヤー）が別途
-必要になる。現在の画像を機械的に加工してかんむりだけ消すのは、境界が
-不自然になるリスクが高く実施していない。
+これを解消するには、HAIRに**かんむりを含まない**全身画像（または
+「髪だけ」を切り抜いた独立透明レイヤー）が別途必要になる。現在の画像を
+機械的に加工してかんむりだけ消すのは、境界が不自然になるリスクが高く
+実施していない。
 
 ## 想定する構造（レイヤー合成）
 
@@ -180,7 +222,12 @@ hair → crown の順に重ねるだけで、拡大縮小やscaleX/scaleYの調�
   `dressup.equipped[catId]`に記録され、`WHOLE_BODY_PRIORITY`の優先順位に
   従って選ばれた1枚が、Princess Preview全体へフェード＋scaleで「変身」します。
   発音練習・Great job・次のカテゴリー・完成画面まで維持され、PLAY AGAINで
-  リセットされます（`dressup.activePortraitSrc`で状態管理）。
+  リセットされます（`dressup.activePortraitSrc`で状態管理）。この全身画像に
+  元から王冠が焼き込まれている場合は`crownBaked: true`も追加してください
+  （現在はHAIRの3項目のみ）。付けると、その画像が表示されている間は
+  二重王冠防止のためCrownレイヤーが自動的に非表示になります。付けなければ
+  （現在のDRESSの3項目）、equipped.crownがあれば自動的にCrownレイヤーと
+  独立して同時表示されます。
 - **髪だけ／かんむりだけ等を切り抜いた独立透明素材がある場合**：そのアイテムに
   `layerPath`（画像パス）を設定してください（`layerSlot`は省略時catIdと同じ）。
   正解として選ばれると、対応する`dressup-layer-*`（`index.html`の
@@ -188,11 +235,10 @@ hair → crown の順に重ねるだけで、拡大縮小やscaleX/scaleYの調�
   経由しない、他カテゴリーと干渉しない独立表示になります。**CROWNの3項目
   （gold/flower/purple）は実際にこの方式で実装済みです**（`crownStyle`に
   よる個別位置調整、専用の`applyCrownLayer()`／3箇所同期については上記
-  「CROWNの実装」を参照）。ただし、CROWNは他の全身画像アイテムと同時に
-  見た目へ反映する際に二重王冠を避ける必要があるため、`computeDressupVisual()`
-  内で「SHOES/DRESSの全身画像がアクティブな間はCrownレイヤーを強制的に
-  非表示にする」という追加ロジックを持ちます（`WHOLE_BODY_PRIORITY`配列
-  自体には含まれません）。
+  「CROWNの実装」を参照）。CROWNが他の全身画像アイテムと同時表示できるか
+  どうかは、その全身画像側の`crownBaked`フラグで判定されます（上記
+  「DRESS×CROWNの独立性」参照。`WHOLE_BODY_PRIORITY`配列自体にCROWNは
+  含まれません）。
 
 **HAIR/DRESS/SHOESは現時点でどのアイテムも`layerPath`を持たず、全て
 `assetPath`+`hasAsset`の「全身差し替え」方式のみです。** そのため複数
