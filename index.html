@@ -153,7 +153,13 @@
   </div>
 
   <!-- プリンセス本体（現在は仮イラスト。将来PNG/WebPに差し替え可能） -->
+  <!-- #princess-stage は「見える窓」（サイズ固定・overflow:hidden）。
+       #princess-camera はその中身（画像＋当たり判定）をまとめて動かす
+       ラッパーで、問題のbody partに応じてscale/translateだけを変更する
+       ことで「カメラが寄った」ように見せる。画像とhotspotは常に同じ
+       transform対象の中に入っているため、ズームしても位置がずれない。 -->
   <div id="princess-stage" class="princess-stage">
+   <div id="princess-camera" class="princess-camera">
     <svg class="princess-illustration" viewBox="0 0 300 500" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
       <!-- うしろの後光（装飾） -->
       <ellipse class="p-aura" cx="150" cy="180" rx="150" ry="220" fill="url(#auraGradient)"/>
@@ -227,8 +233,11 @@
 
     <!-- 実際にタップする透明な当たり判定はJSで生成してここに挿入する -->
     <div id="princess-hotspots" class="princess-hotspots"></div>
+   </div>
 
-    <!-- 正解演出（光る輪・キラキラ）を表示するレイヤー -->
+    <!-- 正解/不正解の演出（光る輪・キラキラ・波紋）を表示するレイヤー。
+         カメラズームの影響を受けないよう、princess-cameraの外（stage直下）
+         に置き、実測pxで位置を指定する。 -->
     <div id="princess-fx-layer" class="princess-fx-layer" aria-hidden="true"></div>
   </div>
 

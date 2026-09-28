@@ -123,8 +123,11 @@
       jp: "ゆびは どこ？",
       plural: true,
       hotspots: [
-        { left: 0, top: 47, width: 9, height: 11 }, // 左ゆび
-        { left: 85, top: 40, width: 15, height: 6 }, // 右ゆび
+        // UPPER BODY VIEW（ズーム後）でも画面外に切れないよう、画像の
+        // 端ぎりぎり（0%・100%）から少しだけ内側に寄せてある
+        // （handsのhotspotと接する内側の境界はそのまま、外側だけを詰めた）。
+        { left: 3, top: 47, width: 6, height: 11 }, // 左ゆび
+        { left: 80, top: 40, width: 11, height: 6 }, // 右ゆび
       ],
     },
     {
@@ -159,9 +162,39 @@
     autoSpokenIndex: -1, // どの問題番号まで自動読み上げ済みか（同じ問題を2回自動で読まないための保証）
   };
 
+  /*
+   * 問題のbody partに応じて、プリンセスの見せ方（カメラの寄り方）を
+   * 自動的に変える設定。
+   *   scale: 何倍に拡大するか（1 = 等倍＝現在に近い全身表示）
+   *   focusX/focusY: 画像の%座標（hotspotsと同じ基準）のうち、ズーム後も
+   *                  画面中央に来続けさせたい点。
+   * #princess-camera 要素に scale(s) translate(tx%, ty%) を設定することで、
+   * 「focusX%, focusY% の点がステージ中央に来る」ような拡大を実現する
+   * （tx = 50/s - focusX, ty = 50/s - focusY）。画像とhotspotは同じ
+   * #princess-camera の中に入っているため、常に完全に一致したまま動く。
+   */
+  const PRINCESS_CAMERA_VIEWS = {
+    face: { scale: 1.6, focusX: 50, focusY: 24 }, // 顔〜上半身を大きく
+    upper: { scale: 1.1, focusX: 50, focusY: 40 }, // 上半身＋両手（画面外に切れないよう控えめに）
+    full: { scale: 1, focusX: 50, focusY: 50 }, // 現在に近い全身表示
+  };
+  const PRINCESS_PART_VIEW = {
+    head: "face",
+    hair: "face",
+    eyes: "face",
+    ears: "face",
+    nose: "face",
+    mouth: "face",
+    hands: "upper",
+    fingers: "upper",
+    legs: "full",
+    feet: "full",
+  };
+
   /* ===================== DOM参照 ===================== */
   const princessScoreEl = document.getElementById("princess-score");
   const princessStageEl = document.getElementById("princess-stage");
+  const princessCameraEl = document.getElementById("princess-camera");
   const princessImgHost = document.querySelector(".princess-illustration");
   const princessHotspotsEl = document.getElementById("princess-hotspots");
   const princessFxLayerEl = document.getElementById("princess-fx-layer");
@@ -231,6 +264,31 @@
   }
 
   /**
+   * 現在 #princess-camera に適用中の transform（scale/tx/ty）。
+   * spawnTiaraSparkle など「%座標→ステージ内px」の変換をする処理が、
+   * ズーム中でも正しい画面位置を計算できるように保持しておく。
+   */
+  let princessCurrentCamera = { scale: 1, tx: 0, ty: 0 };
+
+  /**
+   * 問題のbody partに応じて、プリンセスの見せ方（顔アップ／上半身／全身）を
+   * 切り替える。#princess-camera（画像＋当たり判定を1つにまとめたラッパー）
+   * にscale/translateを設定するだけなので、画像とhotspotは常に完全に
+   * 一致したまま拡大・移動する。切り替えはCSSのtransitionで自然に補間される。
+   */
+  function applyPrincessCameraView(part) {
+    const viewName = (part && PRINCESS_PART_VIEW[part.id]) || "full";
+    const view = PRINCESS_CAMERA_VIEWS[viewName] || PRINCESS_CAMERA_VIEWS.full;
+    const s = view.scale;
+    const tx = 50 / s - view.focusX;
+    const ty = 50 / s - view.focusY;
+    princessCurrentCamera = { scale: s, tx, ty };
+    if (princessCameraEl) {
+      princessCameraEl.style.transform = `scale(${s}) translate(${tx}%, ${ty}%)`;
+    }
+  }
+
+  /**
    * hotspot要素（実際にタップされた領域）の、ステージ内での中心座標(px)を返す。
    * イラストがSVGでもPNGでも、hotspot要素自体の実測位置を使うので同じコードで動く。
    */
@@ -245,10 +303,17 @@
     };
   }
 
-  /** ステージの%座標(PRINCESS_BODY_PARTSのhotspotsと同じ基準)をステージ内px座標に変換する。 */
+  /**
+   * #princess-camera内の%座標(PRINCESS_BODY_PARTSのhotspotsと同じ基準)を、
+   * 現在のカメラズーム状態を考慮した上でステージ内px座標に変換する。
+   * （ズームしていない全身表示の時は従来どおり単純な%→px変換と一致する）
+   */
   function stagePercentToPx(leftPct, topPct) {
     const stageRect = princessStageEl.getBoundingClientRect();
-    return { cx: (leftPct / 100) * stageRect.width, cy: (topPct / 100) * stageRect.height };
+    const cam = princessCurrentCamera;
+    const fx = (leftPct / 100 + cam.tx / 100) * cam.scale;
+    const fy = (topPct / 100 + cam.ty / 100) * cam.scale;
+    return { cx: fx * stageRect.width, cy: fy * stageRect.height };
   }
 
   /**
@@ -472,7 +537,9 @@
         img.src = PRINCESS_CONFIG.imageSrc;
         img.alt = "Princess";
         img.draggable = false;
-        princessStageEl.insertBefore(img, princessHotspotsEl);
+        // 画像は #princess-camera（当たり判定と同じズーム対象）の中に入れる。
+        const insertHost = princessCameraEl || princessStageEl;
+        insertHost.insertBefore(img, princessHotspotsEl);
       }
     }
   }
@@ -493,7 +560,7 @@
         btn.style.height = rect.height + "%";
         btn.setAttribute("aria-label", part.en);
         btn.dataset.partId = part.id;
-        btn.addEventListener("click", () => handlePrincessTap(part, btn));
+        btn.addEventListener("click", (e) => handlePrincessTap(part, btn, e));
         princessHotspotsEl.appendChild(btn);
       });
     });
@@ -548,6 +615,7 @@
 
     princessQuestionEnEl.textContent = questionTextFor(target);
     princessQuestionJpEl.textContent = target.jp;
+    applyPrincessCameraView(target);
 
     // 自動読み上げは、この問題番号につき1回だけ。
     // 「🔊 もういちど」ボタン（speakPrincessQuestionを直接呼ぶ）はこの対象外なので、
@@ -575,14 +643,17 @@
 
   /* ---------- タップ処理 ---------- */
 
-  function handlePrincessTap(part, hotspotEl) {
+  function handlePrincessTap(part, hotspotEl, event) {
     if (!princess.awaitingPick) return;
+    // hotspotボタンのクリックが #princess-stage 側の「はずれ」リスナーにも
+    // バブリングして二重にhandlePrincessMiss等が呼ばれないようにする。
+    if (event) event.stopPropagation();
 
     const target = currentTargetPart();
     if (!target) return;
 
     if (part.id !== target.id) {
-      handlePrincessMiss();
+      handlePrincessMiss(hotspotEl, null);
       return;
     }
 
@@ -597,17 +668,51 @@
   }
 
   // ドレスなど、当たり判定のない場所をタップした場合の「はずれ」
-  princessStageEl.addEventListener("click", () => {
+  princessStageEl.addEventListener("click", (event) => {
     if (!princess.awaitingPick) return;
-    handlePrincessMiss();
+    handlePrincessMiss(null, event);
   });
 
-  function handlePrincessMiss() {
-    // 幼児向け方針：×・ブザー・赤い画面などは一切使わない。
-    // 軽くゆれるだけの、否定的でないリアクション。
-    princessStageEl.classList.add("shake");
-    setTimeout(() => princessStageEl.classList.remove("shake"), 400);
+  /**
+   * 不正解時のリアクション。
+   * ×・赤色・ブザー・画面/キャラクターのシェイクは一切使わない。
+   * 代わりに、実際にタップされた場所（間違えたhotspot、または
+   * hotspotの無い場所をタップした場合はそのタップ座標）にだけ、
+   * 赤くない柔らかい光の波紋を一度だけ表示し、「Try again!」を
+   * 優しい音声で再生する。プリンセス本体・画面全体は一切動かさない。
+   */
+  function handlePrincessMiss(hotspotEl, event) {
+    const stageRect = princessStageEl.getBoundingClientRect();
+    let cx, cy, refSize;
+    if (hotspotEl) {
+      const c = stageRelativeCenter(hotspotEl);
+      cx = c.cx;
+      cy = c.cy;
+      refSize = Math.max(c.width, c.height);
+    } else if (event && typeof event.clientX === "number") {
+      cx = event.clientX - stageRect.left;
+      cy = event.clientY - stageRect.top;
+      refSize = 40;
+    } else {
+      cx = stageRect.width / 2;
+      cy = stageRect.height / 2;
+      refSize = 40;
+    }
+    spawnMissRipple(cx, cy, refSize);
     Speech.speak("Try again!");
+  }
+
+  /** 不正解タップの位置にだけ出す、赤色を使わない柔らかい波紋（一度だけ）。 */
+  function spawnMissRipple(cx, cy, refSize) {
+    const size = Math.max(refSize || 46, 30) * 1.4;
+    const ripple = document.createElement("div");
+    ripple.className = "princess-miss-ripple";
+    ripple.style.left = cx - size / 2 + "px";
+    ripple.style.top = cy - size / 2 + "px";
+    ripple.style.width = size + "px";
+    ripple.style.height = size + "px";
+    princessFxLayerEl.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 700);
   }
 
   /* ===================== フェーズ2: じぶんではなしてみよう ===================== */
