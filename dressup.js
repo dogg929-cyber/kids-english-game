@@ -18,20 +18,37 @@
  *   - 画像素材は現時点で HAIR（髪型）とDRESS（ドレス）カテゴリーの
  *     実写素材が揃っている（assets/dressup/hair/long|ponytail|braids.webp、
  *     assets/dressup/dresses/pink|blue|yellow.webp）。CROWN/SHOESはまだ
- *     無いので、そこでは選択状態をプレビュー下のLook Badgesだけに反映する。
- *     各アイテムの hasAsset:true + assetPath を見て「実画像に変身させる
- *     カテゴリーかどうか」を判定しているので、将来CROWN/SHOESの画像が
- *     揃ったら、同じように hasAsset:true と assetPath を設定するだけで
- *     同じ変身演出がそのまま使える。
- *   - 【重要な既知の制約】現在のHAIR/DRESS画像はどちらも「もう片方の
- *     カテゴリー込みの全身portrait」（HAIR画像=Purple Dress固定、
- *     DRESS画像=Long Hair固定）であり、髪だけ／ドレスだけの透明レイヤー
- *     素材ではない。そのため実装は「最後にhasAssetな選択をしたカテゴリー
- *     の画像でPrincess Preview全体を上書きする」方式で、出題順が固定
- *     HAIR→CROWN→DRESS→SHOESであることから、DRESSを選ぶと見た目上は
- *     選んだ髪型がDress画像に焼き込まれたLong Hairに戻って見える
- *     （選択の記録自体は dressup.selections に正しく残る）。詳細と
- *     将来のレイヤー合成への移行方針は assets/dressup/README.md、
+ *     無いので、そこでは選択状態をプレビュー下のLook Badgesと選択肢
+ *     カードの金枠+✓だけに反映する。
+ *   - 【着せ替え状態：dressup.equipped】 hair/crown/dress/shoesは
+ *     完全に独立した状態として dressup.equipped = {hair,crown,dress,shoes}
+ *     に保持される。あるカテゴリーで正解しても、他カテゴリーの
+ *     equippedは一切リセットされない（例：Ponytail + Flower Crown +
+ *     Blue Dress + Purple Shoesを同時に「装着中」として保持できる）。
+ *     これは将来、好きな順・好きな組み合わせで自由に着せ替えられる
+ *     FREE DRESS UPモードを追加する際にも、このゲーム進行（固定順の
+ *     クイズ）とは別に、そのまま流用できる状態設計にしてある。
+ *   - 【見た目のレイヤー合成：dressup-layer-*】 index.html側は
+ *     base→dress→shoes→hair→crown→effectsの順に重ねる透明レイヤー
+ *     スタック（#dressup-portrait-layers内の各 .dressup-layer）を
+ *     前提にしたDOM構造になっている。各アイテムが「髪だけ／ドレスだけ」
+ *     を切り抜いた独立透明素材を持つ場合は item.layerPath +
+ *     item.layerSlot（'hair'|'crown'|'dress'|'shoes'）を設定すれば、
+ *     対応するレイヤー<img>にそのまま表示される（拡大縮小やscaleX/scaleY
+ *     の個別調整は不要）。
+ *   - 【重要な既知の制約：全身画像の優先表示】 現在のHAIR/DRESS画像は
+ *     どちらも「もう片方のカテゴリー込みの全身portrait」（HAIR画像=
+ *     Purple Dress固定、DRESS画像=Long Hair固定）であり、上記の
+ *     layerPathを使った独立レイヤーではない（どのアイテムもlayerPathは
+ *     未設定）。そのため実装は、hasAsset:true な「全身画像」アイテムが
+ *     equipped中に複数あるとき、WHOLE_BODY_PRIORITY（下記）の優先順位に
+ *     従って1枚だけをPrincess Preview全体に表示する（無理な合成はしない）。
+ *     優先順位は shoes > dress > crown > hair なので、今のところ
+ *     DRESSがHAIRより優先される（HAIR選択後にDRESSを選ぶと、見た目上は
+ *     選んだ髪型がDress画像に焼き込まれたLong Hairに戻って見える）。
+ *     dressup.equipped.hair 自体はきちんと保持されたままなので、
+ *     Look Badge／選択肢カードの金枠+✓には正しく反映され続ける。
+ *     詳細と将来のレイヤー合成への移行方針は assets/dressup/README.md、
  *     および handleDressUpChoiceTap内のコメントを参照。
  */
 (function () {
@@ -55,11 +72,19 @@
    *   assetPath  Princess Preview全体をこの画像に差し替えるための実画像パス
    *              （未配置カテゴリーはコメントのみでコード上は未設定）
    *   hasAsset   true の場合、正解タップでPrincess Preview全体を
-   *              assetPathの画像へ変身させる（HAIR/DRESSで使用）
+   *              assetPathの画像へ変身させる（HAIR/DRESSで使用。
+   *              WHOLE_BODY_PRIORITYの優先順位で1枚だけが表示される）
    *   thumbPath  3択カード自体に表示する、頭〜髪型部分だけを切り出した
    *              サムネイル画像。あれば色スウォッチの代わりにこの写真を使う
    *              （HAIRで使用。DRESSは色スウォッチのままの方がPink/Blue/
    *              Yellowの違いが一目でわかるため、意図的にthumbPathを付けていない）
+   *   layerPath  【将来用・現在はどのアイテムも未設定】髪だけ／
+   *              ドレスだけ／かんむりだけ等を切り抜いた独立透明レイヤー
+   *              素材のパス。設定されたアイテムは、対応する
+   *              dressup-layer-*（layerSlot参照）に単独で重ね描画される
+   *              （hasAsset方式の「全身丸ごと上書き」とは併用しない）。
+   *   layerSlot  layerPathを使う場合、どのレイヤー('hair'|'crown'|
+   *              'dress'|'shoes')に表示するか。省略時はcatIdと同じとみなす。
    */
   const DRESSUP_CATEGORIES = [
     {
@@ -228,6 +253,14 @@
   const questionJpEl = document.getElementById("dressup-question-jp");
   const replayBtn = document.getElementById("dressup-replay-btn");
   const previewImgEl = document.getElementById("dressup-preview-img");
+  // 将来layerPath付きの独立透明素材が揃ったカテゴリーから使われる、
+  // base以外のレイヤー<img>参照（今はどれもhiddenのまま未使用）。
+  const layerEls = {
+    dress: document.getElementById("dressup-layer-dress"),
+    shoes: document.getElementById("dressup-layer-shoes"),
+    hair: document.getElementById("dressup-layer-hair"),
+    crown: document.getElementById("dressup-layer-crown"),
+  };
   const fxLayerEl = document.getElementById("dressup-fx-layer");
   const badgesWrapEl = document.getElementById("dressup-look-badges");
   const choicesWrapEl = document.getElementById("dressup-choices");
@@ -253,20 +286,32 @@
 
   /* ===================== ゲーム状態 ===================== */
   const dressup = {
-    order: DRESSUP_CATEGORIES.map((c) => c.id), // 1 HAIR → 2 CROWN → 3 DRESS → 4 SHOES（固定順）
+    order: DRESSUP_CATEGORIES.map((c) => c.id), // 1 HAIR → 2 CROWN → 3 DRESS → 4 SHOES（固定順・クイズの出題順）
     currentIndex: 0,
     awaitingPick: true,
     targetItem: null,
     targetCatId: null,
     pendingItem: null,
-    selections: {}, // catId -> itemId
+    // catId -> 選んだアイテム（オブジェクト）。4カテゴリーが完全に独立して
+    // おり、あるカテゴリーで正解しても他カテゴリーのequippedは一切
+    // リセットされない（例：hair=ponytail, crown=flower, dress=blue,
+    // shoes=purpleを同時に保持できる）。FREE DRESS UPモードでもそのまま
+    // 使える状態設計。
+    equipped: { hair: null, crown: null, dress: null, shoes: null },
     autoSpokenIndex: -1,
-    // 現在プリンセスに表示すべき画像。hasAsset:trueのアイテムを選ぶまでは
-    // ベースのprincess.webpのまま。DRESSで選んだ実画像は、発音練習・
-    // Great job・次のSHOESステージ・完成画面まで、PLAY AGAINでリセット
-    // されるまでずっと維持する（要件3「状態維持」）。
+    // 現在Baseレイヤー（プレビューの主画像）に表示すべき画像。
+    // hasAsset:trueのアイテムを選ぶまではベースのprincess.webpのまま。
+    // 選んだ実画像は、発音練習・Great job・次のステージ・完成画面まで、
+    // PLAY AGAINでリセットされるまでずっと維持する（要件「状態維持」）。
     activePortraitSrc: DRESSUP_BASE_IMAGE,
   };
+
+  // 全身画像（hasAsset:true）が複数のカテゴリーで同時にequippedされた
+  // ときに、どれか1枚だけをPrincess Preview全体に表示するための優先順位。
+  // 「無理に合成せず、質の高い1枚をそのまま見せる」という方針の実装で、
+  // 出題順(HAIR→CROWN→DRESS→SHOES)と揃えて「後の工程ほど優先」にしてある
+  // （将来SHOESに全身画像が増えれば、SHOESが最優先で表示される）。
+  const WHOLE_BODY_PRIORITY = ["shoes", "dress", "crown", "hair"];
 
   function prefersReducedMotion() {
     return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -298,7 +343,7 @@
     if (!badgesWrapEl) return;
     badgesWrapEl.querySelectorAll(".dressup-look-badge").forEach((badge) => {
       const catId = badge.dataset.cat;
-      const done = !!dressup.selections[catId];
+      const done = !!dressup.equipped[catId];
       const active = catId === dressup.targetCatId && !done;
       badge.classList.toggle("is-done", done);
       badge.classList.toggle("is-active", active);
@@ -306,14 +351,47 @@
   }
 
   /**
+   * dressup.equipped の中から、独立透明レイヤー素材(layerPath)を持つ
+   * アイテムだけを対応する dressup-layer-* へ反映する。今のところ
+   * どのアイテムもlayerPathを持たないため、常に全レイヤーhiddenのまま
+   * だが、将来layerPath付きの素材が追加されたカテゴリーから自動的に
+   * ここで表示されるようになる（このロジックは変更不要）。
+   */
+  function applyIndependentLayers() {
+    ["dress", "shoes", "hair", "crown"].forEach((slot) => {
+      const el = layerEls[slot];
+      if (!el) return;
+      const item = dressup.equipped[slot];
+      if (item && item.layerPath) {
+        el.src = item.layerPath;
+        el.hidden = false;
+      } else {
+        el.hidden = true;
+        el.removeAttribute("src");
+      }
+    });
+  }
+
+  /**
+   * dressup.equipped の中から、全身画像(hasAsset:true)を持つアイテムを
+   * WHOLE_BODY_PRIORITYの優先順位で探し、Baseレイヤーに表示すべき画像を
+   * 1枚決める。該当が無ければベースのprincess.webpのまま。
+   */
+  function pickWholeBodyPortraitSrc() {
+    for (const catId of WHOLE_BODY_PRIORITY) {
+      const item = dressup.equipped[catId];
+      if (item && item.hasAsset && item.assetPath) return item.assetPath;
+    }
+    return DRESSUP_BASE_IMAGE;
+  }
+
+  /**
    * プリンセスのプレビューを、アニメーション無しで即座に現在の状態
-   * （dressup.activePortraitSrc）に同期する。ゲーム開始時／PLAY AGAIN時に使う。
-   * 将来HAIR/CROWN/SHOESの画像も揃ったら、ここを「base → hair → crown →
-   * dress → shoes」の順に透明画像を重ねるレイヤー合成に差し替えられる
-   * （各アイテムのassetPathはすでに用意してある）。現時点ではDRESS以外の
-   * 画像が無いため、選択状態はLook Badges側でも表現する。
+   * （dressup.equipped全体）に同期する。ゲーム開始時／PLAY AGAIN時に使う。
    */
   function renderDressUpPreview() {
+    applyIndependentLayers();
+    dressup.activePortraitSrc = pickWholeBodyPortraitSrc();
     if (previewImgEl) previewImgEl.src = dressup.activePortraitSrc;
     renderLookBadges();
   }
@@ -454,7 +532,7 @@
     Speech.stopListening();
 
     dressup.currentIndex = 0;
-    dressup.selections = {};
+    dressup.equipped = { hair: null, crown: null, dress: null, shoes: null };
     dressup.awaitingPick = true;
     dressup.pendingItem = null;
     dressup.autoSpokenIndex = -1;
@@ -573,40 +651,53 @@
       cardEl.classList.add("dressup-correct-pop");
     }
 
-    dressup.selections[dressup.targetCatId] = item.id;
+    // このカテゴリーだけを「今これを着けている」に更新する。他カテゴリーの
+    // equippedには一切触れない＝独立した着せ替え状態（要件「選択した
+    // カテゴリー以外をリセットしないこと」）。
+    dressup.equipped[dressup.targetCatId] = item;
     renderLookBadges();
+    // 「今これを着けている」の金枠＋✓バッジをカードに付ける（次の問題へ
+    // 切り替わるまでの短い間だけ表示される。FREE DRESS UPモードでは
+    // 同じクラスをそのまま常時表示に使える設計）。
+    cardEl.classList.add("dressup-option-equipped");
 
-    // 実画像があるアイテム（現時点ではHAIRとDRESS）は、Princess Preview
-    // 全体を選んだ見た目へ「変身」させる。横スライドはせず、ふわっとした
+    // 独立透明レイヤー素材(layerPath)があれば対応するレイヤーへ反映する
+    // （今のところどのアイテムも未設定なので実際には何も起きない）。
+    applyIndependentLayers();
+
+    // 全身画像(hasAsset:true)を持つアイテムがequipped中にあれば、
+    // WHOLE_BODY_PRIORITYに従って1枚を選びPrincess Preview全体を
+    // その見た目へ「変身」させる。横スライドはせず、ふわっとした
     // フェード＋scaleと、プレビュー自身の上に咲くsparkleで演出する。
     //
     // 【重要：Hair × Dressの組み合わせについて】
     // 現在のHAIR画像は「Purple Dress + 選んだ髪型」の全身portrait、
     // DRESS画像は「Long Hair + 選んだドレス色」の全身portraitであり、
     // どちらも“もう片方のカテゴリー込みの完成画像”しか無い（髪だけ・
-    // ドレスだけの透明レイヤー素材ではない）。そのため今の実装は
-    // 「一番最後にhasAssetな選択をしたカテゴリーの画像で portrait を
-    // 丸ごと上書きする」という仕様にしてある。ゲームの出題順は固定で
-    // HAIR→CROWN→DRESS→SHOESなので、実際には
+    // ドレスだけの透明レイヤー素材ではない＝layerPath未設定）。そのため
+    // 今の実装は「WHOLE_BODY_PRIORITY（shoes > dress > crown > hair）に
+    // 従って1枚だけを portrait 全体として表示する」方式にしてある。
+    // 現状DRESSがHAIRより優先されるため、実際には
     //   HAIRを選ぶ → Previewがその髪型のportraitに変身
     //   （CROWNは仮素材なので見た目は変わらず）
     //   DRESSを選ぶ → Previewがそのドレス色のportraitに変身
     //                 （＝見た目上は選んだ髪型が消え、Dress画像に
     //                   焼き込まれているLong Hairに戻って見える）
-    // という挙動になる。dressup.selections には選んだHairのidは
-    // そのままきちんと保持されており（Look Badgeの「HAIR達成」表示や
-    // スコアには影響しない）、あくまで“最後に変身した見た目”だけが
-    // Dress優先になる、という仕様上の制約。将来、髪だけ／ドレスだけの
-    // 透明レイヤー素材（同一base・同一座標）が揃った場合は、ここを
-    // 複数<img>を重ねる方式に差し替えることでHair×Dressの完全な
-    // 組み合わせ表示が可能になる（assets/dressup/README.md参照）。
-    if (item.hasAsset && item.assetPath && previewImgEl) {
+    // という挙動になる。dressup.equipped.hair 自体はそのままきちんと
+    // 保持されており（Look Badgeの「HAIR達成」表示やスコアには影響
+    // しない）、あくまで“今表示されている見た目”だけがDress優先になる、
+    // という仕様上の制約。将来、髪だけ／ドレスだけの透明レイヤー素材
+    // （同一base・同一座標）が揃った場合は、そのアイテムに
+    // layerPath/layerSlotを設定するだけでWHOLE_BODY_PRIORITYより優先され
+    // ず独立表示に切り替わる（コード変更不要。assets/dressup/README.md参照）。
+    const nextWholeBodySrc = pickWholeBodyPortraitSrc();
+    if (nextWholeBodySrc !== dressup.activePortraitSrc && previewImgEl) {
       const previewCenter = elementRelativeCenter(previewImgEl);
       spawnSparkleBurst(previewCenter.cx, previewCenter.cy, Math.max(previewCenter.width, previewCenter.height) * 0.5, {
         chars: ["✨", "⭐", "💫"],
         count: 8,
       });
-      swapDressUpPreviewImage(item.assetPath);
+      swapDressUpPreviewImage(nextWholeBodySrc);
     }
 
     Speech.speak(`${item.speakWord}!`, {

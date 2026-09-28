@@ -342,10 +342,16 @@
      Princess Englishの「からださがし」と同じ世界観・演出（HUD/question card/
      MAGIC SPEAK CARD/mini dance/special dance/BGM duckingなど）を最大限
      再利用しつつ、遊び方だけ「タップで探す」→「3択から選ぶ」に変えたゲーム。
-     現時点ではhair/crown/dress/shoes専用の画像素材（assets/dressup/配下）が
-     まだ無いため、プレビューはprincess.webpをそのまま使い、選択状態は
-     プレビュー下の小さなバッジ（Look Badges）だけに反映する。素材が揃い次第、
-     dressup.js の DRESSUP_ITEMS に画像パスを設定するだけで差し替えられる。 -->
+     hair/crown/dress/shoesはそれぞれ独立した「今着けているもの」の状態を持ち、
+     他カテゴリーを選んでもリセットされない（dressup.jsのdressup.equipped）。
+     見た目は本来 base→dress→shoes→hair→crown→effects の透明レイヤー合成を
+     前提にしたDOM構造（dressup-layer-*）だが、現時点ではどのカテゴリーも
+     まだ「髪だけ／ドレスだけ」を切り抜いた独立透明レイヤー素材を持たず、
+     HAIR/DRESSにあるのは全身portrait画像のみなので、実際にはそのうち1枚を
+     優先順位に従って丸ごと表示する（無理な合成はしない）。CROWN/SHOESは
+     まだ画像が無いので、選択状態はプレビュー下のLook Badgesと選択肢カードの
+     金枠+✓だけに反映する。将来layerPath付きの独立透明素材が揃った
+     カテゴリーから順に、対応するdressup-layer-*へ自動的に反映される。 -->
 <section id="screen-dressup" class="screen dressup-screen">
   <div class="princess-hud">
     <button class="back-btn princess-home-btn" data-target="screen-home" aria-label="ホームへ もどる">🏠</button>
@@ -378,10 +384,21 @@
     <p class="princess-question-jp" id="dressup-question-jp">ポニーテールは どれ？</p>
   </div>
 
-  <!-- プリンセスのプレビュー（現在は画像素材が無いため、既存のprincess.webpを
-       そのまま表示。選ばれたカテゴリーはプレビュー下のLook Badgesで示す）。 -->
+  <!-- プリンセスのプレビュー：base→dress→shoes→hair→crown の順に重ねる
+       レイヤースタック（dressup-layer-*）。今は独立透明素材が無いカテゴリーの
+       レイヤー<img>はhiddenのままで、baseレイヤー（id=dressup-preview-img、
+       今のところ唯一「見える」レイヤー）だけが優先順位に従って選んだ全身
+       画像を表示する。将来layerPath付きの素材が揃ったカテゴリーから、
+       JS側でそのレイヤーのsrcを設定してhiddenを外すだけで独立表示に
+       切り替わる（このHTML構造・重なり順は変更不要）。 -->
   <div class="dressup-preview-stage">
-    <img class="dressup-preview-img" id="dressup-preview-img" src="assets/princess.webp" alt="Princess" draggable="false" />
+    <div class="dressup-portrait-layers" id="dressup-portrait-layers">
+      <img class="dressup-preview-img dressup-layer dressup-layer-base" id="dressup-preview-img" src="assets/princess.webp" alt="Princess" draggable="false" />
+      <img class="dressup-layer dressup-layer-dress" id="dressup-layer-dress" alt="" draggable="false" hidden />
+      <img class="dressup-layer dressup-layer-shoes" id="dressup-layer-shoes" alt="" draggable="false" hidden />
+      <img class="dressup-layer dressup-layer-hair" id="dressup-layer-hair" alt="" draggable="false" hidden />
+      <img class="dressup-layer dressup-layer-crown" id="dressup-layer-crown" alt="" draggable="false" hidden />
+    </div>
     <div id="dressup-fx-layer" class="princess-fx-layer" aria-hidden="true"></div>
     <div class="dressup-look-badges" id="dressup-look-badges">
       <span class="dressup-look-badge" data-cat="hair" aria-label="Hair">💇</span>

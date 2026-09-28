@@ -1812,14 +1812,29 @@ button {
   margin: 14px auto 0;
   width: min(46vw, 190px);
 }
-.dressup-preview-img {
+/* base→dress→shoes→hair→crown の順に重ねるレイヤースタック。
+   全レイヤーとも同一サイズ・同一位置（position:absolute; inset:0）に
+   揃えてあるので、将来のどのレイヤーにも拡大縮小やscaleX/scaleYの
+   個別調整は不要（画像を歪ませない設計を保つ）。 */
+.dressup-portrait-layers {
+  position: relative;
   width: 100%;
   aspect-ratio: 1024 / 1536;
+}
+.dressup-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   display: block;
   margin: 0 auto;
+}
+.dressup-layer-base {
   filter: drop-shadow(0 10px 14px rgba(154, 100, 160, 0.25));
 }
+/* dress/shoes/hair/crownの各レイヤーは、独立した透明素材(layerPath)が
+   揃うまでhidden属性のまま非表示（[hidden]はブラウザ標準でdisplay:none）。 */
 /* ドレスなど実画像を選んだ瞬間の「変身」演出。横方向へは一切動かさず、
    ふわっとした fade + 均一な scale（縦横同じ倍率）だけで切り替える。
    scaleXとscaleYを別々に指定することは絶対にしない（画像を歪ませない
@@ -1965,6 +1980,35 @@ button {
   font-weight: 900;
   color: var(--ps-text);
   line-height: 1.15;
+}
+
+/* 「今これを着けている」の金枠＋✓バッジ。正解タップした直後、次の問題へ
+   切り替わるまでの短い間（CORRECT_CELEBRATE_DELAY_MS）だけカードに付与
+   される。将来のFREE DRESS UPモード（好きな組み合わせを自由に交換できる
+   画面）でも同じクラスをそのまま使い、常時「今装着中」を示せるように
+   設計してある。 */
+.dressup-option-card.dressup-option-equipped {
+  position: relative;
+  border-color: var(--ps-gold-deep);
+  box-shadow: 0 0 0 3px rgba(255, 210, 77, 0.55), 0 4px 0 var(--ps-shadow-soft), 0 6px 10px var(--ps-shadow-soft);
+}
+.dressup-option-card.dressup-option-equipped::after {
+  content: "✓";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(150deg, #FFE29A, var(--ps-gold-deep));
+  color: #6B4A00;
+  font-size: 14px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 2px solid #fff;
 }
 
 /* 正解タップ時：カードがふわっと弾む（translateXの横スライドは使わない）。 */
