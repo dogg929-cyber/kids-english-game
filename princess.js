@@ -145,11 +145,13 @@
     {
       id: "feet",
       en: "feet",
-      jp: "あんよは どこ？",
+      // legs（あしは どこ？）とjpが同じにならないよう、実際のhotspot位置
+      // （くつ）に合わせた自然な言い方にする。
+      jp: "くつは どこ？",
       plural: true,
       hotspots: [
-        { left: 31, top: 89, width: 16, height: 10 }, // 左あんよ
-        { left: 56, top: 89, width: 17, height: 9 }, // 右あんよ
+        { left: 31, top: 89, width: 16, height: 10 }, // 左あし（くつ）
+        { left: 56, top: 89, width: 17, height: 9 }, // 右あし（くつ）
       ],
     },
   ];
@@ -167,28 +169,36 @@
   /*
    * 問題のbody partに応じて、プリンセスの見せ方（カメラの寄り方）を
    * 自動的に変える設定。
-   *   scaleX/scaleY: 横方向・縦方向、それぞれ何倍に拡大するか（1=等倍）。
-   *                  実測した結果、指先が画像の左右の端(0%/100%)ぎりぎり
-   *                  まで写っているため、hands/fingers のUPPER BODY VIEWだけ
-   *                  scaleX=1（横方向は拡大しない＝絶対に切れない）にしつつ、
-   *                  scaleYだけ大きくして「縦方向にだけ寄って脚を画面外に
-   *                  追い出す」構図にしている（横に伸び縮みしないので、
-   *                  手の左右位置がズレる心配がない）。
+   *
+   * 重要：princess.webpの縦横比はどの画面でも絶対に変えない方針のため、
+   * ズームは常に scaleX === scaleY の「uniform scale」のみを使う
+   * （非対称スケールは禁止）。
+   *   scale: 何倍に拡大するか（1 = 等倍＝現在に近い全身表示）
    *   focusX/focusY: 画像の%座標（hotspotsと同じ基準）のうち、ズーム後も
    *                  画面中央に来続けさせたい点。
-   * #princess-camera 要素に scale(sx, sy) translate(tx%, ty%) を設定する
-   * ことで、「focusX%, focusY% の点がステージ中央に来る」ような拡大を
-   * 実現する（tx = 50/sx - focusX, ty = 50/sy - focusY）。画像とhotspotは
-   * 同じ #princess-camera の中に入っているため、常に完全に一致したまま動く。
+   * #princess-camera 要素に scale(s) translate(tx%, ty%) を設定することで、
+   * 「focusX%, focusY% の点がステージ中央に来る」ような拡大を実現する
+   * （tx = 50/s - focusX, ty = 50/s - focusY）。画像とhotspotは同じ
+   * #princess-camera の中に入っているため、常に完全に一致したまま動く。
+   * #princess-camera 自体は常に「ステージの横幅 × フル画像の縦横比(2:3)」の
+   * サイズを保つ（CSSのaspect-ratioで固定）ため、hotspotの%座標は常に
+   * フル画像を基準にしたまま一切ズレない。
    */
   const PRINCESS_CAMERA_VIEWS = {
-    face: { scaleX: 1.6, scaleY: 1.6, focusX: 50, focusY: 24 }, // 顔〜上半身を大きく
-    // 上半身＋両手。指先が画像の端(0%/100%)まで写っているため、横方向は
-    // 拡大しない(scaleX=1)ことで両手・両指が絶対に画面外へ切れないように
-    // しつつ、縦方向だけ拡大(scaleY)して脚から下を画面外に追い出す。
-    upper: { scaleX: 1, scaleY: 1.7, focusX: 50, focusY: 33 },
-    full: { scaleX: 1, scaleY: 1, focusX: 50, focusY: 50 }, // 現在に近い全身表示
+    face: { scale: 1.6, focusX: 50, focusY: 24 }, // 顔〜上半身を大きく（uniform）
+    full: { scale: 1, focusX: 50, focusY: 50 }, // 現在に近い全身表示
   };
+  /*
+   * hands/fingers（HANDS VIEW）は、実測すると指先が画像の左右端(0%/100%)
+   * ちょうどまで写っているため、uniform scaleでズームすると横方向も
+   * 必ず切れてしまう。そこで「画像は一切拡大せず(scale=1)、#princess-stage
+   * （見える窓）の高さだけを画像の上からHANDS_VISIBLE_HEIGHT_PCT%ぶんに
+   * 縮める」方式で、脚から下だけを画面外に追い出す。#princess-camera自体は
+   * 常にステージの横幅×フル画像比率のサイズを保つ（widthは変わらない）ため、
+   * 横方向は常に100%そのまま表示され、両手・両指が画面外に切れることは
+   * 絶対にない。画像の拡大率は常に1（非対称スケールなし・distortionなし）。
+   */
+  const HANDS_VISIBLE_HEIGHT_PCT = 66;
   const PRINCESS_PART_VIEW = {
     head: "face",
     hair: "face",
@@ -196,8 +206,8 @@
     ears: "face",
     nose: "face",
     mouth: "face",
-    hands: "upper",
-    fingers: "upper",
+    hands: "hands",
+    fingers: "hands",
     legs: "full",
     feet: "full",
   };
@@ -215,6 +225,7 @@
   const princessSpeakOverlay = document.getElementById("princess-speak-overlay");
   const princessSpeakPortraitEl = document.getElementById("princess-speak-portrait");
   const princessMicIconEl = document.getElementById("princess-mic-icon");
+  const princessMicRingEl = document.getElementById("princess-mic-ring");
   const princessSpeakWordEl = document.getElementById("princess-speak-word");
   const princessMicStatusEl = document.getElementById("princess-mic-status");
   const princessHearExampleBtn = document.getElementById("princess-hear-example-btn");
@@ -223,7 +234,6 @@
   const princessYouDidItEl = document.getElementById("princess-you-did-it");
   const princessRoundPortraitEl = document.getElementById("princess-round-portrait");
   const princessRoundSubEl = document.getElementById("princess-round-sub");
-  const princessRoundScoreEl = document.getElementById("princess-round-score");
   const princessAgainBtn = document.getElementById("princess-again-btn");
   const princessHomeBtn = document.getElementById("princess-home-btn");
   const princessStartBtn = document.getElementById("princess-start-btn");
@@ -277,29 +287,52 @@
     return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
 
+  /** マイクの「listening」状態を、アイコンとsoft pulse ringの両方に反映する。 */
+  function setMicListening(isListening) {
+    princessMicIconEl.classList.toggle("listening", isListening);
+    if (princessMicRingEl) princessMicRingEl.classList.toggle("active", isListening);
+  }
+
   /**
-   * 現在 #princess-camera に適用中の transform（scaleX/scaleY/tx/ty）。
+   * 現在 #princess-camera に適用中の transform（uniform scale/tx/ty）。
    * spawnTiaraSparkle など「%座標→ステージ内px」の変換をする処理が、
    * ズーム中でも正しい画面位置を計算できるように保持しておく。
    */
-  let princessCurrentCamera = { scaleX: 1, scaleY: 1, tx: 0, ty: 0 };
+  let princessCurrentCamera = { scale: 1, tx: 0, ty: 0 };
 
   /**
-   * 問題のbody partに応じて、プリンセスの見せ方（顔アップ／上半身／全身）を
-   * 切り替える。#princess-camera（画像＋当たり判定を1つにまとめたラッパー）
-   * にscale/translateを設定するだけなので、画像とhotspotは常に完全に
-   * 一致したまま拡大・移動する。切り替えはCSSのtransitionで自然に補間される。
+   * 問題のbody partに応じて、プリンセスの見せ方（顔アップ／両手／全身）を
+   * 切り替える。
+   *
+   * FACE / FULLは、#princess-camera（画像＋当たり判定を1つにまとめた
+   * ラッパー）にuniform scale + translateを設定するだけなので、画像と
+   * hotspotは常に完全に一致したまま拡大・移動する（scaleX===scaleYを
+   * 常に維持し、非対称スケールは絶対に使わない）。
+   *
+   * HANDSは画像側を一切拡大せず(scale=1)、#princess-stage（見える窓）の
+   * 高さだけを縮めて脚から下を画面外に追い出す（詳しくはHANDS_VISIBLE_
+   * HEIGHT_PCTの説明を参照）。#princess-cameraの横幅は常にステージと同じ
+   * (=100%)のままなので、両手・両指が横方向に切れることは絶対にない。
+   * 切り替えはCSSのtransitionで自然に補間される。
    */
   function applyPrincessCameraView(part) {
     const viewName = (part && PRINCESS_PART_VIEW[part.id]) || "full";
+
+    if (viewName === "hands") {
+      princessStageEl.style.aspectRatio = `1024 / ${(1536 * HANDS_VISIBLE_HEIGHT_PCT) / 100}`;
+      if (princessCameraEl) princessCameraEl.style.transform = "none";
+      princessCurrentCamera = { scale: 1, tx: 0, ty: 0 };
+      return;
+    }
+
+    princessStageEl.style.aspectRatio = ""; // CSS既定（フル画像と同じ1024/1536）に戻す
     const view = PRINCESS_CAMERA_VIEWS[viewName] || PRINCESS_CAMERA_VIEWS.full;
-    const sx = view.scaleX;
-    const sy = view.scaleY;
-    const tx = 50 / sx - view.focusX;
-    const ty = 50 / sy - view.focusY;
-    princessCurrentCamera = { scaleX: sx, scaleY: sy, tx, ty };
+    const s = view.scale;
+    const tx = 50 / s - view.focusX;
+    const ty = 50 / s - view.focusY;
+    princessCurrentCamera = { scale: s, tx, ty };
     if (princessCameraEl) {
-      princessCameraEl.style.transform = `scale(${sx}, ${sy}) translate(${tx}%, ${ty}%)`;
+      princessCameraEl.style.transform = `scale(${s}) translate(${tx}%, ${ty}%)`;
     }
   }
 
@@ -321,14 +354,20 @@
   /**
    * #princess-camera内の%座標(PRINCESS_BODY_PARTSのhotspotsと同じ基準)を、
    * 現在のカメラズーム状態を考慮した上でステージ内px座標に変換する。
-   * （ズームしていない全身表示の時は従来どおり単純な%→px変換と一致する）
+   *
+   * #princess-cameraは常に「ステージの横幅 × フル画像の縦横比(2:3)」の
+   * 高さを保つ（HANDS VIEWでステージ自体が縮んでいても、カメラは常に
+   * フル画像と1:1で対応する）ため、縦方向の基準には stageRect.height では
+   * なく、ステージの横幅から計算したフル画像相当の高さを常に使う。
+   * （ズームしていない全身表示の時は、この高さ＝stageRect.heightと一致する）
    */
   function stagePercentToPx(leftPct, topPct) {
     const stageRect = princessStageEl.getBoundingClientRect();
     const cam = princessCurrentCamera;
-    const fx = (leftPct / 100 + cam.tx / 100) * cam.scaleX;
-    const fy = (topPct / 100 + cam.ty / 100) * cam.scaleY;
-    return { cx: fx * stageRect.width, cy: fy * stageRect.height };
+    const cameraHeightPx = stageRect.width * (1536 / 1024);
+    const fx = (leftPct / 100 + cam.tx / 100) * cam.scale;
+    const fy = (topPct / 100 + cam.ty / 100) * cam.scale;
+    return { cx: fx * stageRect.width, cy: fy * cameraHeightPx };
   }
 
   /**
@@ -502,7 +541,7 @@
     }
 
     if (!prefersReducedMotion()) {
-      const confettiColors = ["#FFD24D", "#FF8FB1", "#B18BFF", "#8FE3C0"];
+      const confettiColors = ["#FFC94D", "#FF8FB1", "#B18BFF", "#BFE3FF"];
       for (let i = 0; i < 8; i++) {
         const c = document.createElement("div");
         c.className = "princess-confetti-piece";
@@ -582,6 +621,53 @@
     });
   }
 
+  /*
+   * 2〜5歳児向けの「forgiving hit area」。
+   * 見た目のhotspot（画像との一致を保つための元の%座標）と、実際にタップを
+   * 受け付ける当たり判定の大きさをここで分離する。境界ギリギリで子どもを
+   * 不正解にしないよう、今出題されている部位のhotspotボタンだけを
+   * transform: scale() で中心基準に拡大する（座標自体は変更しないので、
+   * playPrincessCorrectReaction等が使う実測位置は自然に大きくなった
+   * 当たり判定の中心のまま）。他の部位は元の大きさのままなので、明らかに
+   * 違う場所を押せば従来どおり不正解になる。
+   * head/ears/eyes/nose/mouth/fingersのみ指定（それ以外は等倍のまま）。
+   */
+  // head/ears/eyes/nose/mouthはFACE VIEWのカメラズーム(scale 1.6)が既に
+  // 画面上のサイズを拡大しているため、ここでの倍率はその上に「掛け算」される
+  // 実効倍率で考える（例: head 1.3 × カメラ1.6 ≈ 実効2.1倍＝very large）。
+  // 値を大きくしすぎるとhead等の当たり判定が隣接パーツやドレス領域まで
+  // はみ出し、明らかに違う場所のタップまで正解扱いになってしまうため、
+  // 実機に近いPlaywrightテスト（はずれタップの回帰テスト）で確認しながら
+  // 決めている。fingersはHANDS VIEWで追加ズームがない（scale=1）ため、
+  // ここでの倍率がそのまま実効倍率になる。
+  const PRINCESS_FORGIVING_SCALE = {
+    head: 1.3, // very large（実効 約2.1倍）
+    ears: 1.15, // large（実効 約1.84倍）
+    eyes: 1.05, // medium-large（実効 約1.68倍）
+    nose: 1.0, // medium（カメラズームのみで十分）
+    mouth: 1.0, // medium（カメラズームのみで十分）
+    fingers: 1.5, // medium-large（HANDS VIEWは追加ズームなしなのでそのまま）
+  };
+
+  /** 現在の出題部位のhotspotだけを forgiving（拡大＋最前面）にし、他は元に戻す。 */
+  function updateForgivingHitArea(target) {
+    princessHotspotsEl.querySelectorAll(".princess-hotspot").forEach((btn) => {
+      btn.classList.remove("hotspot-forgiving");
+      btn.style.transform = "";
+      btn.style.zIndex = "";
+    });
+    if (!target) return;
+    const scale = PRINCESS_FORGIVING_SCALE[target.id];
+    if (!scale) return;
+    princessHotspotsEl
+      .querySelectorAll(`.princess-hotspot[data-part-id="${target.id}"]`)
+      .forEach((btn) => {
+        btn.classList.add("hotspot-forgiving");
+        btn.style.transform = `scale(${scale})`;
+        btn.style.zIndex = "5"; // 他パーツのDOM順に関係なく、今出題中の部位を最前面にする
+      });
+  }
+
   /* ===================== ラウンドの開始 ===================== */
 
   function startPrincessGame() {
@@ -632,6 +718,7 @@
     princessQuestionEnEl.textContent = questionTextFor(target);
     princessQuestionJpEl.textContent = target.jp;
     applyPrincessCameraView(target);
+    updateForgivingHitArea(target);
 
     // 自動読み上げは、この問題番号につき1回だけ。
     // 「🔊 もういちど」ボタン（speakPrincessQuestionを直接呼ぶ）はこの対象外なので、
@@ -737,7 +824,7 @@
     princess.pendingPart = part;
 
     if (princessSpeakPortraitEl) princessSpeakPortraitEl.classList.remove("pe-mini-dance");
-    princessMicIconEl.classList.remove("listening");
+    setMicListening(false);
     princessSpeakWordEl.textContent = part.en.toUpperCase();
     princessMicStatusEl.textContent = "";
     princessSpeakOverlay.hidden = false;
@@ -751,7 +838,7 @@
     if (!princess.pendingPart || princess.pendingPart.id !== part.id) return;
 
     if (!Speech.isRecognitionSupported()) {
-      princessMicIconEl.classList.remove("listening");
+      setMicListening(false);
       princessMicStatusEl.textContent = "🎤 いってみよう！";
       setTimeout(() => {
         if (princess.pendingPart && princess.pendingPart.id === part.id) {
@@ -761,14 +848,16 @@
       return;
     }
 
-    princessMicIconEl.classList.add("listening");
-    princessMicStatusEl.textContent = "きいているよ…";
+    setMicListening(true);
+    // 「録音中」であることは、マイクまわりのsoft pulse ring（CSS）だけで
+    // 視覚的に伝える。日本語の説明文はここでは表示しない。
+    princessMicStatusEl.textContent = "";
 
     Speech.listen({
       timeoutMs: LISTEN_TIMEOUT_MS,
       onResult: (transcript) => {
         if (!princess.pendingPart || princess.pendingPart.id !== part.id) return;
-        princessMicIconEl.classList.remove("listening");
+        setMicListening(false);
         if (Speech.matchesWord(transcript, part.en)) {
           handlePrincessPronunciationSuccess(part);
         } else {
@@ -777,12 +866,12 @@
       },
       onNoSpeech: () => {
         if (!princess.pendingPart || princess.pendingPart.id !== part.id) return;
-        princessMicIconEl.classList.remove("listening");
+        setMicListening(false);
         handlePrincessPronunciationRetry(part);
       },
       onDenied: () => {
         if (!princess.pendingPart || princess.pendingPart.id !== part.id) return;
-        princessMicIconEl.classList.remove("listening");
+        setMicListening(false);
         princessMicStatusEl.textContent = "🎤 いってみよう！";
         setTimeout(() => {
           if (princess.pendingPart && princess.pendingPart.id === part.id) {
@@ -792,7 +881,7 @@
       },
       onUnsupported: () => {
         if (!princess.pendingPart || princess.pendingPart.id !== part.id) return;
-        princessMicIconEl.classList.remove("listening");
+        setMicListening(false);
         princessMicStatusEl.textContent = "🎤 いってみよう！";
         setTimeout(() => {
           if (princess.pendingPart && princess.pendingPart.id === part.id) {
@@ -820,7 +909,7 @@
     if (!part) return;
     Speech.cancelSpeaking();
     Speech.stopListening();
-    princessMicIconEl.classList.remove("listening");
+    setMicListening(false);
     princessMicStatusEl.textContent = "";
     Speech.speak(part.en, {
       onEnd: () => beginPrincessListening(part),
@@ -869,7 +958,10 @@
    * 2) プリンセス（実写画像）がSPECIAL DANCE（約3秒、bounce+rotate+scaleのみ、
    *    左右への大移動やtranslateXの横スライドは一切なし）
    * 3) 星・ハート・紙吹雪を数回に分けて表示（アニメーション終了後は必ずDOMから削除）
-   * 4) "You did it!"を隠し、結果スコア＋"Great job!"＋大きなPLAY AGAINボタンを表示
+   * 4) "You did it!"を隠し、"Great job!"＋大きなPLAY AGAINボタンを表示
+   *
+   * 点数評価・星3段階評価などの採点表示はしない（子どもを採点するゲームに
+   * しないという方針のため、結果画面に数値スコアは出さない）。
    *
    * prefers-reduced-motion: reduce の場合は、ダンス・紙吹雪を一切出さず、
    * 静的な星と"You did it!"表示だけの短いお祝いにする。
@@ -881,7 +973,6 @@
     princessRoundCompleteEl.hidden = false;
     princessYouDidItEl.hidden = false;
     princessRoundSubEl.hidden = true;
-    princessRoundScoreEl.hidden = true;
     princessAgainBtn.hidden = true;
     princessHomeBtn.hidden = true;
 
@@ -904,8 +995,6 @@
       if (princessRoundPortraitEl) princessRoundPortraitEl.classList.remove("pe-special-dance");
       princessYouDidItEl.hidden = true;
       princessRoundSubEl.hidden = false;
-      princessRoundScoreEl.hidden = false;
-      princessRoundScoreEl.textContent = `${princess.score} / ${princess.order.length} こ できたね！`;
       princessAgainBtn.hidden = false;
       princessHomeBtn.hidden = false;
       Speech.speak("Great job!");
@@ -921,7 +1010,7 @@
     const staticOnly = !!(options && options.staticOnly);
     const overlayRect = princessRoundCompleteEl.getBoundingClientRect();
     const sparkleChars = ["✨", "⭐", "💫", "💗", "💕"];
-    const confettiColors = ["#FFD24D", "#FF8FB1", "#B18BFF", "#8FE3C0"];
+    const confettiColors = ["#FFC94D", "#FF8FB1", "#B18BFF", "#BFE3FF"];
 
     function starBurst(count) {
       for (let i = 0; i < count; i++) {

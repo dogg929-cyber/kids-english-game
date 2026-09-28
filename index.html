@@ -14,17 +14,25 @@
      大きなPLAYボタンだけのシンプルな1画面構成にしてある（スクロールなし）。
      読めることを前提にした説明文・小さいボタン類は表示しない。 -->
 <section id="screen-home" class="screen active home-screen">
+  <!-- 背景をレイヤー化して奥行きを出す：遠景の空グラデーション→雲→お城→
+       前景の光の粒子、の順に重ねる。すべてpointer-events:noneの装飾で、
+       タップ操作には一切干渉しない。 -->
   <div class="home-scenery" aria-hidden="true">
-    <span class="home-sparkle home-sparkle-1">✨</span>
-    <span class="home-sparkle home-sparkle-2">✨</span>
-    <span class="home-sparkle home-sparkle-3">✨</span>
+    <div class="home-sky"></div>
+    <span class="home-cloud home-cloud-1">☁️</span>
+    <span class="home-cloud home-cloud-2">☁️</span>
     <span class="home-castle">🏰</span>
+    <span class="home-sparkle home-sparkle-1">✨</span>
+    <span class="home-sparkle home-sparkle-2">⭐</span>
+    <span class="home-sparkle home-sparkle-3">✨</span>
+    <span class="home-sparkle home-sparkle-4">✨</span>
+    <div class="home-foreground"></div>
   </div>
 
   <div class="home-wrap">
     <div class="home-titles">
-      <h1 class="home-title">Princess&nbsp;English</h1>
-      <p class="home-subtitle">Let's play English! ✨</p>
+      <h1 class="home-title">PRINCESS<br>ENGLISH</h1>
+      <p class="home-tagline">Play <span class="home-tagline-dot">•</span> Listen <span class="home-tagline-dot">•</span> Speak</p>
     </div>
 
     <!-- プリンセス本体：ゲーム内の「全身を小さく引きで見せる」表示ではなく、
@@ -32,17 +40,20 @@
          トリミング表示する。ゲーム内のhotspot座標系とは完全に独立しているため、
          ここでの見た目調整はゲームプレイに一切影響しない。 -->
     <div class="home-princess-frame">
+      <div class="home-princess-glow" aria-hidden="true"></div>
       <span class="home-deco home-deco-star1">⭐</span>
       <span class="home-deco home-deco-heart1">💗</span>
       <span class="home-deco home-deco-star2">✨</span>
+      <span class="home-deco home-deco-heart2">♡</span>
       <img class="home-princess-img" src="assets/princess.webp" alt="Princess" draggable="false" />
     </div>
 
-    <!-- Princess English：ホーム画面唯一のゲーム入口。
-         押すまでは一切音を鳴らさない（Safariの自動再生制限対策も兼ねる）。 -->
-    <button id="princess-start-btn" class="home-play-btn">
+    <!-- Princess English：ホーム画面唯一のゲーム入口。ゲーム機のボタンのように
+         上面＋濃い下側＋soft shadowで立体的にし、押すと沈むmicro interaction
+         を付ける。押すまでは一切音を鳴らさない（Safariの自動再生制限対策も兼ねる）。 -->
+    <button id="princess-start-btn" class="home-play-btn ps-btn-3d">
       <span class="home-play-icon">▶</span>
-      <span class="home-play-label">あそぶ</span>
+      <span class="home-play-label">PLAY</span>
     </button>
 
     <!-- 以下は旧ゲーム（Animals/Colors/Fruits/Numbersのフラッシュカード、クイズ）。
@@ -148,8 +159,12 @@
 
 <!-- ===================== Princess English（プリンセスの からだ さがしゲーム） ===================== -->
 <section id="screen-princess" class="screen princess-screen">
-  <button class="back-btn" data-target="screen-home">← もどる</button>
-  <div class="quiz-score-badge princess-score-badge">⭐️ <span id="princess-score">0</span></div>
+  <!-- ゲームらしい小さなHUD：左にHOME（アイコンのみ）、右に「今の進行」を
+       ⭐ 3 / 10のように表示（採点競争ではなく、あと何問かを示す用途）。 -->
+  <div class="princess-hud">
+    <button class="back-btn princess-home-btn" data-target="screen-home" aria-label="ホームへ もどる">🏠</button>
+    <div class="princess-progress-badge">⭐ <span id="princess-score">0</span><span class="princess-progress-total"> / 10</span></div>
+  </div>
 
   <!-- 背景（お城の庭。装飾のみ・タップ不可） -->
   <div class="princess-scenery" aria-hidden="true">
@@ -157,20 +172,22 @@
     <span class="princess-cloud princess-cloud-1">☁️</span>
     <span class="princess-cloud princess-cloud-2">☁️</span>
     <div class="princess-castle">🏰</div>
+    <div class="princess-glow" aria-hidden="true"></div>
     <div class="princess-bush princess-bush-left">🌳</div>
     <div class="princess-bush princess-bush-right">🌳</div>
     <div class="princess-flowers princess-flowers-left">🌷🌷🌷</div>
     <div class="princess-flowers princess-flowers-right">🌷🌷🌷</div>
+    <span class="princess-particle princess-particle-1">✨</span>
+    <span class="princess-particle princess-particle-2">✨</span>
     <div class="princess-grass"></div>
   </div>
 
-  <!-- 質問バナー -->
-  <div class="zoo-question-banner princess-question-banner">
-    <button id="princess-replay-btn" class="zoo-replay-btn" aria-label="もういちど きく">🔊</button>
-    <div class="zoo-question-text">
-      <p class="quiz-question-en" id="princess-question-en">Where are her eyes?</p>
-      <p class="quiz-question-jp" id="princess-question-jp">めは どこ？</p>
-    </div>
+  <!-- QUESTION CARD：プリンセス世界に合う、cream/gold borderの大きなカード。
+       英語を最大に大きく、🔊はカード内の丸い立体ボタンにする。 -->
+  <div class="princess-question-card">
+    <p class="princess-question-en" id="princess-question-en">Where are her eyes?</p>
+    <button id="princess-replay-btn" class="princess-replay-btn ps-btn-3d" aria-label="もういちど きく">🔊</button>
+    <p class="princess-question-jp" id="princess-question-jp">めは どこ？</p>
   </div>
 
   <!-- プリンセス本体（現在は仮イラスト。将来PNG/WebPに差し替え可能） -->
@@ -262,18 +279,24 @@
     <div id="princess-fx-layer" class="princess-fx-layer" aria-hidden="true"></div>
   </div>
 
-  <!-- 発音練習オーバーレイ -->
-  <div id="princess-speak-overlay" class="zoo-speak-overlay" hidden>
-    <div class="zoo-speak-card">
+  <!-- 発音練習オーバーレイ：モーダル感の強いWebダイアログではなく、
+       ゲーム世界に馴染む「MAGIC SPEAK CARD」として表示する。
+       「録音中」を示す日本語の説明文は表示せず、マイクまわりのsoft pulse
+       ringだけで視覚的に伝える。 -->
+  <div id="princess-speak-overlay" class="zoo-speak-overlay princess-magic-overlay" hidden>
+    <div class="zoo-speak-card princess-magic-card">
       <!-- 1枚のprincess.webpをそのまま使い、正解時のミニダンス(pe-mini-dance)も
            この実写画像に対して適用する（絵文字ではなく実際のキャラクター）。 -->
       <img class="princess-speak-portrait" id="princess-speak-portrait" src="assets/princess.webp" alt="Princess" draggable="false" />
-      <div class="mic-icon" id="princess-mic-icon">🎤</div>
-      <p class="speak-prompt-sub">Can you say</p>
-      <p class="speak-prompt-word" id="princess-speak-word">EYES</p>
+      <p class="princess-speak-sub">Can you say</p>
+      <p class="princess-speak-word" id="princess-speak-word">EYES</p>
+      <div class="princess-mic-wrap">
+        <span class="princess-mic-ring" id="princess-mic-ring" aria-hidden="true"></span>
+        <div class="mic-icon princess-mic-btn ps-btn-3d" id="princess-mic-icon" aria-hidden="true">🎤</div>
+      </div>
       <p class="mic-status" id="princess-mic-status"></p>
       <div class="speak-actions">
-        <button id="princess-hear-example-btn" class="quiz-replay-btn">🔊 おてほんを きく</button>
+        <button id="princess-hear-example-btn" class="princess-hear-btn ps-btn-3d">🔊 おてほんを きく</button>
       </div>
       <button id="princess-skip-btn" class="skip-btn">つぎへ →</button>
     </div>
@@ -283,15 +306,15 @@
        10問クリア →「You did it!」大きく表示 → プリンセスがSPECIAL DANCE(約3秒)
        → 星・ハート・紙吹雪 →「Great job!」→ 大きなPLAY AGAINボタン、の順で
        段階的に表示する。要素は最初から全部DOMにあり、hidden切り替えのみで
-       進行させる（JS: finishPrincessRound / advancePrincessRoundCelebration）。 -->
-  <div id="princess-round-complete" class="zoo-speak-overlay" hidden>
-    <div class="zoo-speak-card">
-      <p class="princess-you-did-it" id="princess-you-did-it" hidden>You did it! 🎉</p>
+       進行させる（JS: finishPrincessRound / advancePrincessRoundCelebration）。
+       点数評価・星3段階評価などは表示しない（子どもを採点しないため）。 -->
+  <div id="princess-round-complete" class="zoo-speak-overlay princess-magic-overlay" hidden>
+    <div class="zoo-speak-card princess-magic-card princess-result-card">
+      <p class="princess-you-did-it" id="princess-you-did-it" hidden>✨ YOU DID IT! ✨</p>
       <img class="princess-round-portrait" id="princess-round-portrait" src="assets/princess.webp" alt="Princess" draggable="false" />
-      <p class="speak-prompt-sub" style="font-size:20px;" id="princess-round-sub" hidden>やったね！</p>
-      <p class="mic-status" id="princess-round-score" hidden></p>
-      <button id="princess-again-btn" class="princess-play-again-btn" hidden>▶ もういちど あそぶ</button>
-      <button id="princess-home-btn" class="back-btn-solid" style="margin-top:12px;" hidden>ホームへ</button>
+      <p class="princess-round-sub" id="princess-round-sub" hidden>Great job! 🎉</p>
+      <button id="princess-again-btn" class="princess-play-again-btn ps-btn-3d" hidden>▶ PLAY AGAIN</button>
+      <button id="princess-home-btn" class="princess-result-home-btn" hidden>🏠</button>
     </div>
   </div>
 </section>
