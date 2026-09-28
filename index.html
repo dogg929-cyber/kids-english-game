@@ -490,6 +490,10 @@
   </div>
 
   <div class="magic-arrows-wrap">
+    <!-- LIFE：各LEVEL開始時に❤️❤️❤️の3つ。blocked Arrowへ衝突するたびに1つ減る。
+         スコア・順位ではなく「あと何回間違えられるか」を視覚だけで伝える。 -->
+    <div class="magic-arrows-lives" id="magic-arrows-lives" aria-hidden="true"></div>
+
     <!-- 残り矢印数の視覚表示（星ではなく小さな宝石ドット。スコア/順位ではない）。 -->
     <div class="magic-arrows-remaining" id="magic-arrows-remaining" aria-hidden="true"></div>
 
@@ -511,6 +515,18 @@
       <button id="magic-arrows-next-btn" class="princess-play-again-btn ps-btn-3d">NEXT LEVEL ▶</button>
       <button id="magic-arrows-again-btn" class="magic-arrows-again-btn ps-btn-3d">▶ PLAY AGAIN</button>
       <button id="magic-arrows-home-btn" class="princess-result-home-btn">🏠</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER：3回衝突してLIFEが0になったら表示。スコア・広告・課金・Continueは無し。
+       RETRYはこのLEVELを開始した時と完全に同じ盤面(initialBoardStateのdeep copy)へ
+       戻す。NEXT LEVEL/PLAY AGAINのような新しい盤面生成は一切しない。 -->
+  <div id="magic-arrows-gameover-overlay" class="zoo-speak-overlay princess-magic-overlay magic-arrows-gameover-overlay" hidden>
+    <div class="zoo-speak-card princess-magic-card princess-result-card magic-arrows-gameover-card">
+      <p class="magic-arrows-gameover-title">GAME OVER</p>
+      <p class="magic-arrows-gameover-hearts" id="magic-arrows-gameover-hearts">❤️ 0</p>
+      <button id="magic-arrows-retry-btn" class="princess-play-again-btn ps-btn-3d magic-arrows-retry-btn">🔄 RETRY</button>
+      <button id="magic-arrows-gameover-home-btn" class="princess-result-home-btn">🏠</button>
     </div>
   </div>
 </section>

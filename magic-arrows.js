@@ -61,9 +61,16 @@
 
   const EXIT_MS = 450;
   const EXIT_REDUCED_MS = 180;
-  const BLOCKED_BUMP_MS = 300;
   const CLEAR_DELAY_MS = 200;
   const GENERATE_ATTEMPTS = 60;
+  const START_LIVES = 3;
+
+  // 衝突（blocked）演出：進行方向へ少し動く→コツンと当たる(impact)→
+  // ❤️を1つ減らす→元の位置へ戻る、という一連の流れの時間配分。
+  const COLLIDE_MS = 420;
+  const COLLIDE_REDUCED_MS = 170;
+  const COLLIDE_IMPACT_RATIO = 0.4; // このタイミングでimpact spark + ❤️減少を発生させる
+  const GAMEOVER_SHOW_DELAY_MS = 220; // 最後の衝突アニメーションが収まってからGAME OVERを表示
 
   /* ===================== ロジック層（DOM非依存・純粋関数） ===================== */
 
@@ -244,6 +251,11 @@
   const nextBtn = document.getElementById("magic-arrows-next-btn");
   const againBtn = document.getElementById("magic-arrows-again-btn");
   const homeBtn = document.getElementById("magic-arrows-home-btn");
+  const livesEl = document.getElementById("magic-arrows-lives");
+  const gameoverOverlayEl = document.getElementById("magic-arrows-gameover-overlay");
+  const gameoverHeartsEl = document.getElementById("magic-arrows-gameover-hearts");
+  const retryBtn = document.getElementById("magic-arrows-retry-btn");
+  const gameoverHomeBtn = document.getElementById("magic-arrows-gameover-home-btn");
 
   if (!homeStartBtn || !boardEl) return; // このHTMLが無い環境（他ページ等）では何もしない
 
@@ -254,8 +266,16 @@
     arrows: [],
     tileEls: {},
     tutorialArrowId: null,
-    locked: false, // クリア演出中など、盤面全体の新規タップを一時停止したい場合に使う
+    locked: false, // クリア演出/GAME OVER中など、盤面全体の新規タップを一時停止したい場合に使う
+    lives: START_LIVES,
+    gameState: "playing", // "playing" | "gameover"
+    initialBoardState: [], // このLEVELを開始した瞬間のArrow配置(deep copy)。RETRYで使う。
   };
+
+  /** {id,row,col,dir,color,state:"active"}の配列を独立コピーする(参照共有を断つ)。 */
+  function deepCloneArrows(arrows) {
+    return arrows.map((a) => ({ id: a.id, row: a.row, col: a.col, dir: a.dir, color: a.color, state: "active" }));
+  }
 
   /* ===================== 小さなユーティリティ ===================== */
   function prefersReducedMotion() {
@@ -316,6 +336,45 @@
     setTimeout(() => ripple.remove(), 750);
   }
 
+  /**
+   * 衝突(collide)の「コツンと当たった瞬間」に、進行方向側の縁のあたりへ
+   * 小さなspark(輪+2粒)を出す。赤色・×は使わない。dirの分だけタイル中心から
+   * オフセットして、実際にぶつかった位置に見えるようにする。
+   */
+  function spawnImpactSpark(el, dir) {
+    if (!fxLayerEl) return;
+    const { cx, cy, size } = elCenterInFxLayer(el);
+    const d = DIRS[dir];
+    const offset = Math.max(size, 30) * 0.55;
+    const ix = cx + d.dc * offset;
+    const iy = cy + d.dr * offset;
+
+    const ring = document.createElement("div");
+    ring.className = "princess-glow-ring magic-arrows-impact-ring";
+    const ringSize = Math.max(size, 30) * 0.85;
+    ring.style.left = ix - ringSize / 2 + "px";
+    ring.style.top = iy - ringSize / 2 + "px";
+    ring.style.width = ringSize + "px";
+    ring.style.height = ringSize + "px";
+    fxLayerEl.appendChild(ring);
+    setTimeout(() => ring.remove(), 800);
+
+    const count = prefersReducedMotion() ? 1 : 3;
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement("div");
+      s.className = "princess-sparkle magic-arrows-impact-spark";
+      s.textContent = "✨";
+      s.style.left = ix + "px";
+      s.style.top = iy + "px";
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 10 + Math.random() * 10;
+      s.style.setProperty("--sx", Math.cos(angle) * dist + "px");
+      s.style.setProperty("--sy", Math.sin(angle) * dist + "px");
+      fxLayerEl.appendChild(s);
+      setTimeout(() => s.remove(), 800);
+    }
+  }
+
   /* ===================== render層 ===================== */
   function createTileEl(arrow) {
     const btn = document.createElement("button");
@@ -368,6 +427,19 @@
     return game.arrows.length > 0 && game.arrows.every((a) => a.state === "removed");
   }
 
+  /** LIFE表示（❤️×lives + 失ったぶんは🤍）。スコア・順位ではなく視覚だけで残り回数を伝える。 */
+  function updateLivesDisplay() {
+    if (!livesEl) return;
+    livesEl.innerHTML = "";
+    for (let i = 0; i < START_LIVES; i++) {
+      const span = document.createElement("span");
+      const alive = i < game.lives;
+      span.className = "magic-arrows-life" + (alive ? " is-alive" : " is-lost");
+      span.textContent = alive ? "❤️" : "🤍";
+      livesEl.appendChild(span);
+    }
+  }
+
   /* ===================== チュートリアル（LEVEL1開始時のみ） ===================== */
   function maybeShowTutorial() {
     if (game.level !== 1) return;
@@ -392,16 +464,16 @@
 
   /* ===================== タップ処理 ===================== */
   function handleTap(arrowId) {
-    if (game.locked) return;
+    if (game.locked || game.gameState !== "playing") return; // GAME OVER中は操作不可
     const arrow = game.arrows.find((a) => a.id === arrowId);
-    if (!arrow || arrow.state !== "active") return; // 連打対策：exiting/removed中は無視
+    if (!arrow || arrow.state !== "active") return; // 連打対策：exiting/colliding/removed中は無視
     dismissTutorial();
 
     const activeArrows = game.arrows.filter((a) => a.state === "active");
     if (canArrowExit(arrow, activeArrows, game.gridSize)) {
       removeArrowWithAnimation(arrow);
     } else {
-      playBlockedBump(arrow);
+      playBlockedCollision(arrow);
     }
   }
 
@@ -430,29 +502,91 @@
     }, dur);
   }
 
-  function playBlockedBump(arrow) {
+  /**
+   * LIFE制の衝突処理：即座には消えず、
+   *   1) 進行方向へ少し動く
+   *   2) 他のArrowへコツンと当たる(impact spark)
+   *   3) ❤️を1つ減らす
+   *   4) 元の位置へ戻る
+   * という一連の流れを見せる。赤い×・ブザー・強い振動・盤面全体のシェイクは
+   * 一切使わない。3回目でLIFEが0になったらGAME OVERへ遷移する。
+   */
+  function playBlockedCollision(arrow) {
+    arrow.state = "colliding"; // 連打対策：アニメーション中は同じArrowの再タップを無視する
     playAudioSfx("wrong"); // ブザーではなく、audio.js側で「ごく軽いpop」として定義されている想定のSFX
     const el = game.tileEls[arrow.id];
-    if (!el) return;
-    spawnTileRipple(el);
-    el.classList.remove("ma-blocked-bump");
-    void el.offsetWidth; // reflow強制で連打時もアニメーションを毎回再スタートさせる
-    el.classList.add("ma-blocked-bump");
-    setTimeout(() => el.classList.remove("ma-blocked-bump"), BLOCKED_BUMP_MS + 40);
+    const reduced = prefersReducedMotion();
+    const collideClasses = ["ma-collide-up", "ma-collide-down", "ma-collide-left", "ma-collide-right", "ma-collide-reduced"];
+    if (el) {
+      el.classList.remove(...collideClasses);
+      void el.offsetWidth; // reflow強制で連打時もアニメーションを毎回再スタートさせる
+      el.classList.add(reduced ? "ma-collide-reduced" : "ma-collide-" + arrow.dir);
+    }
+
+    const totalDur = reduced ? COLLIDE_REDUCED_MS : COLLIDE_MS;
+    const impactDelay = Math.round(totalDur * COLLIDE_IMPACT_RATIO);
+
+    // impactの瞬間：spark + ❤️を1つ減らす（GAME OVER判定もここで確定させる）
+    setTimeout(() => {
+      if (el) spawnImpactSpark(el, arrow.dir);
+      game.lives = Math.max(0, game.lives - 1);
+      updateLivesDisplay();
+      if (game.lives <= 0) {
+        game.gameState = "gameover";
+        game.locked = true; // これ以降、他のArrowも含めて一切操作を受け付けない
+      }
+    }, impactDelay);
+
+    // アニメーション終了：元の位置へ戻り、GAME OVERでなければ再度タップ可能にする
+    setTimeout(() => {
+      if (el) el.classList.remove(...collideClasses);
+      if (game.gameState === "gameover") {
+        setTimeout(showGameOverOverlay, GAMEOVER_SHOW_DELAY_MS);
+      } else {
+        arrow.state = "active";
+      }
+    }, totalDur);
+  }
+
+  function showGameOverOverlay() {
+    if (gameoverHeartsEl) gameoverHeartsEl.textContent = "❤️ 0";
+    if (gameoverOverlayEl) gameoverOverlayEl.hidden = false;
   }
 
   /* ===================== レベル進行 ===================== */
+  /** 新しいLEVEL(または同じLEVELの新しい盤面)を生成して開始する。
+   *  この瞬間のArrow配置を initialBoardState として保存しておき、
+   *  以降このLEVEL内でGAME OVER→RETRYになっても、この状態へ完全に戻せるようにする。 */
   function loadLevel(n) {
     const lvl = generateLevel(n);
     game.level = n;
     game.gridSize = lvl.gridSize;
     game.arrows = lvl.arrows;
+    game.initialBoardState = deepCloneArrows(lvl.arrows);
+    game.lives = START_LIVES;
+    game.gameState = "playing";
     game.tutorialArrowId = null;
     game.locked = false;
     if (levelNumEl) levelNumEl.textContent = String(n);
     if (clearOverlayEl) clearOverlayEl.hidden = true;
+    if (gameoverOverlayEl) gameoverOverlayEl.hidden = true;
+    updateLivesDisplay();
     renderBoard();
     maybeShowTutorial();
+  }
+
+  /** RETRY：新しい盤面は一切生成せず、「このLEVELを開始した瞬間の配置」の
+   *  deep copyへ完全に戻す。消していたArrowもすべて復活し、LIFEも3へ全回復する。
+   *  currentBoard = deepClone(initialBoardState); lives = 3; gameState = "playing"; */
+  function retryLevel() {
+    game.arrows = deepCloneArrows(game.initialBoardState);
+    game.lives = START_LIVES;
+    game.gameState = "playing";
+    game.locked = false;
+    game.tutorialArrowId = null; // RETRYでは初回チュートリアルは再表示しない
+    if (gameoverOverlayEl) gameoverOverlayEl.hidden = true;
+    updateLivesDisplay();
+    renderBoard();
   }
 
   function spawnClearCelebration(isFinal) {
@@ -532,13 +666,26 @@
     });
   }
   if (againBtn) {
+    // PLAY AGAIN：RETRY(同じLEVEL・同じ盤面)ともNEXT LEVEL(次のLEVELの新しい盤面)とも違い、
+    // ゲーム全体をLEVEL1の新しい盤面からやり直す。
     againBtn.addEventListener("click", () => {
-      loadLevel(game.level);
+      loadLevel(1);
     });
   }
   if (homeBtn) {
     homeBtn.addEventListener("click", () => {
       if (clearOverlayEl) clearOverlayEl.hidden = true;
+      game.locked = false;
+      if (typeof showScreen === "function") showScreen("screen-home");
+    });
+  }
+  if (retryBtn) {
+    // RETRY：「失敗した直前の状態」ではなく、このLEVELを開始した最初の盤面へ完全に戻す。
+    retryBtn.addEventListener("click", retryLevel);
+  }
+  if (gameoverHomeBtn) {
+    gameoverHomeBtn.addEventListener("click", () => {
+      if (gameoverOverlayEl) gameoverOverlayEl.hidden = true;
       game.locked = false;
       if (typeof showScreen === "function") showScreen("screen-home");
     });
@@ -550,8 +697,13 @@
       return {
         level: game.level,
         gridSize: game.gridSize,
-        arrows: game.arrows.map((a) => ({ id: a.id, row: a.row, col: a.col, dir: a.dir, state: a.state })),
+        lives: game.lives,
+        gameState: game.gameState,
+        arrows: game.arrows.map((a) => ({ id: a.id, row: a.row, col: a.col, dir: a.dir, color: a.color, state: a.state })),
       };
+    },
+    getInitialBoardState() {
+      return game.initialBoardState.map((a) => ({ id: a.id, row: a.row, col: a.col, dir: a.dir, color: a.color }));
     },
     getAvailableMoves() {
       return findAvailableMoves(game.arrows, game.gridSize).map((a) => a.id);
@@ -561,6 +713,9 @@
     },
     loadLevel(n) {
       loadLevel(n);
+    },
+    retryLevel() {
+      retryLevel();
     },
     tapArrow(id) {
       handleTap(id);
