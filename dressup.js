@@ -15,10 +15,15 @@
  *   - 選択肢はすべて DRESSUP_ITEMS というデータ定義から生成するデータ駆動
  *     構造にしてあるので、将来「もっと髪型を増やす」「もっとドレスを増やす」
  *     場合も、このデータに項目を足すだけで対応できる（コード変更不要）。
- *   - 画像素材（assets/dressup/配下）はまだ無いので、プレビューは
- *     assets/princess.webp を表示したまま、選択状態はプレビュー下の
- *     Look Badgesにだけ反映する。各アイテムの assetPath はすでに用意して
- *     あるので、素材が揃ったら値を入れてレイヤー合成に切り替えられる。
+ *   - 画像素材は現時点で DRESS（ドレス）カテゴリーのみ実写素材
+ *     （assets/dressup/dresses/pink|blue|yellow.webp）が揃っている。
+ *     HAIR/CROWN/SHOESはまだ無いので、プレビューはassets/princess.webpの
+ *     まま、選択状態はプレビュー下のLook Badgesだけに反映する。
+ *     各アイテムの hasAsset:true + assetPath を見て「実画像に変身させる
+ *     カテゴリーかどうか」を判定しているので、将来HAIR/CROWN/SHOESの
+ *     画像が揃ったら、同じように hasAsset:true と assetPath を設定する
+ *     だけで（レイヤー合成にする場合は別途対応が必要だが）同じ変身演出が
+ *     そのまま使える。
  */
 (function () {
   const LISTEN_TIMEOUT_MS = 6000;
@@ -120,7 +125,8 @@
           jp: "ピンクの ドレスは どれ？",
           swatch: "#FF8FB1",
           icon: "👗",
-          assetPath: "assets/dressup/dresses/pink.webp", // 未配置
+          assetPath: "assets/dressup/dresses/pink.webp",
+          hasAsset: true, // 実画像あり：正解タップでPrincess Previewがこの画像に変身する
         },
         {
           id: "blue",
@@ -129,7 +135,8 @@
           jp: "みずいろの ドレスは どれ？",
           swatch: "#7EC8F2",
           icon: "👗",
-          assetPath: "assets/dressup/dresses/blue.webp", // 未配置
+          assetPath: "assets/dressup/dresses/blue.webp",
+          hasAsset: true,
         },
         {
           id: "yellow",
@@ -138,7 +145,8 @@
           jp: "きいろの ドレスは どれ？",
           swatch: "#FFD24D",
           icon: "👗",
-          assetPath: "assets/dressup/dresses/yellow.webp", // 未配置
+          assetPath: "assets/dressup/dresses/yellow.webp",
+          hasAsset: true,
         },
       ],
     },
@@ -230,6 +238,11 @@
     pendingItem: null,
     selections: {}, // catId -> itemId
     autoSpokenIndex: -1,
+    // 現在プリンセスに表示すべき画像。hasAsset:trueのアイテムを選ぶまでは
+    // ベースのprincess.webpのまま。DRESSで選んだ実画像は、発音練習・
+    // Great job・次のSHOESステージ・完成画面まで、PLAY AGAINでリセット
+    // されるまでずっと維持する（要件3「状態維持」）。
+    activePortraitSrc: DRESSUP_BASE_IMAGE,
   };
 
   function prefersReducedMotion() {
@@ -270,17 +283,45 @@
   }
 
   /**
-   * プリンセスのプレビューを更新する。
-   * 将来 assets/dressup/配下にレイヤー画像が揃ったら、ここを
-   * 「base → hair → crown → dress → shoes」の順に透明画像を重ねる実装に
-   * 差し替える（各アイテムのassetPathはすでに用意してある）。
-   * 現時点では画像が無いので、常に同じprincess.webpを表示し、選択状態は
-   * renderLookBadges()のバッジ側だけで表現する（画像を歪ませない・
-   * 偽の見た目を無理に作らない、という方針のため）。
+   * プリンセスのプレビューを、アニメーション無しで即座に現在の状態
+   * （dressup.activePortraitSrc）に同期する。ゲーム開始時／PLAY AGAIN時に使う。
+   * 将来HAIR/CROWN/SHOESの画像も揃ったら、ここを「base → hair → crown →
+   * dress → shoes」の順に透明画像を重ねるレイヤー合成に差し替えられる
+   * （各アイテムのassetPathはすでに用意してある）。現時点ではDRESS以外の
+   * 画像が無いため、選択状態はLook Badges側でも表現する。
    */
   function renderDressUpPreview() {
-    if (previewImgEl) previewImgEl.src = DRESSUP_BASE_IMAGE;
+    if (previewImgEl) previewImgEl.src = dressup.activePortraitSrc;
     renderLookBadges();
+  }
+
+  /**
+   * プリンセスのプレビューを「魔法で変身した」ように見せながら、
+   * 指定した画像に切り替える。横方向へのスライドはさせず、
+   * ふわっとしたフェード＋わずかな縮小拡大（scale）だけで変化させる
+   * （非対称スケールは使わない。CSS側の dressup-portrait-transform
+   * keyframeがopacity/transformのみを使っているため、画像が歪む心配は無い）。
+   * prefers-reduced-motionの場合はアニメーションなしで即座に切り替える。
+   */
+  function swapDressUpPreviewImage(newSrc) {
+    dressup.activePortraitSrc = newSrc;
+    if (!previewImgEl) return;
+
+    if (prefersReducedMotion()) {
+      previewImgEl.src = newSrc;
+      return;
+    }
+
+    previewImgEl.classList.remove("dressup-portrait-transform");
+    void previewImgEl.offsetWidth; // remove→addを確実に再トリガーするためのreflow
+    previewImgEl.classList.add("dressup-portrait-transform");
+    // keyframeの中間地点（フェードアウトし切ったタイミング）で実際のsrcを差し替える。
+    setTimeout(() => {
+      previewImgEl.src = newSrc;
+    }, 160);
+    setTimeout(() => {
+      previewImgEl.classList.remove("dressup-portrait-transform");
+    }, 420);
   }
 
   /** 3択カードを描画する。画像素材が無いので、色スウォッチ＋絵文字＋英単語の仮カード。 */
@@ -379,6 +420,8 @@
     dressup.awaitingPick = true;
     dressup.pendingItem = null;
     dressup.autoSpokenIndex = -1;
+    // PLAY AGAIN時も含め、プリンセスの見た目を初期状態（ベース画像）に戻す。
+    dressup.activePortraitSrc = DRESSUP_BASE_IMAGE;
 
     if (scoreEl) scoreEl.textContent = "0";
     if (speakOverlayEl) speakOverlayEl.hidden = true;
@@ -495,6 +538,18 @@
     dressup.selections[dressup.targetCatId] = item.id;
     renderLookBadges();
 
+    // 実画像があるアイテム（現時点ではDRESSのみ）は、Princess Previewを
+    // 選んだ見た目へ「変身」させる。横スライドはせず、ふわっとした
+    // フェード＋scaleと、プレビュー自身の上に咲くsparkleで演出する。
+    if (item.hasAsset && item.assetPath && previewImgEl) {
+      const previewCenter = elementRelativeCenter(previewImgEl);
+      spawnSparkleBurst(previewCenter.cx, previewCenter.cy, Math.max(previewCenter.width, previewCenter.height) * 0.5, {
+        chars: ["✨", "⭐", "💫"],
+        count: 8,
+      });
+      swapDressUpPreviewImage(item.assetPath);
+    }
+
     Speech.speak(`${item.speakWord}!`, {
       onEnd: () => enterDressUpSpeakPhase(item),
     });
@@ -513,7 +568,11 @@
   function enterDressUpSpeakPhase(item) {
     dressup.pendingItem = item;
 
-    if (speakPortraitEl) speakPortraitEl.classList.remove("pe-mini-dance");
+    if (speakPortraitEl) {
+      speakPortraitEl.classList.remove("pe-mini-dance");
+      // 発音練習カードのプリンセスも、選んだ見た目（activePortraitSrc）を維持する。
+      speakPortraitEl.src = dressup.activePortraitSrc;
+    }
     setMicListening(false);
     if (speakWordEl) speakWordEl.textContent = item.speakWord.toUpperCase();
     if (micStatusEl) micStatusEl.textContent = "";
@@ -692,6 +751,8 @@
     if (roundSubEl) roundSubEl.hidden = true;
     if (againBtn) againBtn.hidden = true;
     if (homeBtnResult) homeBtnResult.hidden = true;
+    // 完成画面のプリンセスも、最後に選んだ見た目を維持して表示する。
+    if (roundPortraitEl) roundPortraitEl.src = dressup.activePortraitSrc;
 
     // 10問クリア時と同じ考え方：通常BGMをduck → fanfare → SPECIAL DANCE →
     // このsetTimeoutの中で自然に通常BGMへ戻す。

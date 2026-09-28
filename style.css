@@ -1820,6 +1820,27 @@ button {
   margin: 0 auto;
   filter: drop-shadow(0 10px 14px rgba(154, 100, 160, 0.25));
 }
+/* ドレスなど実画像を選んだ瞬間の「変身」演出。横方向へは一切動かさず、
+   ふわっとした fade + 均一な scale（縦横同じ倍率）だけで切り替える。
+   scaleXとscaleYを別々に指定することは絶対にしない（画像を歪ませない
+   というDress Upの設計方針を、CSS側でも保証するため）。JS側は
+   このkeyframeの中間地点（フェードし切ったタイミング）で実際の
+   画像src（image要素の中身）を差し替えるだけで、CSSは見た目の
+   トランジションだけを担当する。 */
+@media (prefers-reduced-motion: no-preference) {
+  .dressup-preview-img.dressup-portrait-transform {
+    animation: dressup-portrait-transform 0.42s ease;
+  }
+  @keyframes dressup-portrait-transform {
+    0% { opacity: 1; transform: scale(1); }
+    38% { opacity: 0.12; transform: scale(0.92); }
+    55% { opacity: 0.12; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dressup-preview-img.dressup-portrait-transform { animation: none; }
+}
 /* 正解時のsparkle等を出すための透明レイヤー（Princess Englishの
    #princess-fx-layerと同じ役割）。プレビュー画像の上に重ねるだけで、
    タップ判定には一切影響しない。 */
