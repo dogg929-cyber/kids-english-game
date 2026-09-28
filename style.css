@@ -54,16 +54,205 @@ button {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ===================== Home ===================== */
+/* =====================================================================
+ * Home（子ども向けホーム画面）
+ * 2〜5さいの、文字が読めない子どもが見て一瞬で「プリンセスのゲームだ！」と
+ * わかることを最優先にした、1画面・スクロールなしのレイアウト。
+ * 配色はラベンダー・ソフトピンク・クリーム・ゴールドを中心にまとめ、
+ * ゲーム内（Princess English）のお城・庭園の世界観と統一している。
+ * ===================================================================== */
+.screen.home-screen {
+  padding: 0;
+  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.home-screen.active {
+  display: flex;
+  align-items: stretch;
+}
+
+.home-scenery {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: linear-gradient(180deg, #FDEBF6 0%, #FBE9D7 38%, #F3E9FB 70%, #E8DCFA 100%);
+}
+.home-sparkle {
+  position: absolute;
+  font-size: 22px;
+  opacity: 0.85;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.08));
+}
+.home-sparkle-1 { top: 6%; left: 12%; }
+.home-sparkle-2 { top: 4%; left: 50%; transform: translateX(-50%); font-size: 18px; }
+.home-sparkle-3 { top: 8%; right: 12%; }
+.home-castle {
+  position: absolute;
+  top: 2%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 30px;
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-sparkle { animation: home-sparkle-twinkle 2.6s ease-in-out infinite; }
+  .home-sparkle-2 { animation-delay: 0.5s; }
+  .home-sparkle-3 { animation-delay: 1s; }
+  @keyframes home-sparkle-twinkle {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.15); }
+  }
+}
+
 .home-wrap {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 520px;
+  max-width: 480px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 18px 20px calc(20px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 8px;
+  justify-content: center;
+  gap: clamp(10px, 3vh, 26px);
 }
 
+.home-titles { text-align: center; flex: 0 0 auto; }
+
+.home-title {
+  font-size: clamp(26px, 8.5vw, 36px);
+  font-weight: 900;
+  color: var(--pink);
+  text-shadow: 2px 3px 0 rgba(255, 255, 255, 0.85);
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.home-subtitle {
+  margin: 4px 0 0;
+  font-size: clamp(14px, 4vw, 17px);
+  font-weight: 800;
+  color: #9A7FBF;
+}
+
+/* ---------- 中央：大きなプリンセス ---------- */
+.home-princess-frame {
+  position: relative;
+  flex: 0 0 auto;
+  width: min(66vw, 270px);
+  aspect-ratio: 4 / 5;
+  max-height: 40vh;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ゲーム内表示（全身を小さく引きで見せる）とは違い、ホームでは顔〜ドレス上部が
+   大きく魅力的に見えるよう、フレームのアスペクト比を画像本来の縦長(2:3)より
+   低くしておき、object-fit:coverで裾～脚から下を切り取って表示する。
+   画像自体（assets/princess.webp）やゲーム内のアスペクト比は変更していない。 */
+.home-princess-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 4%;
+  border-radius: 26px;
+  display: block;
+  filter: drop-shadow(0 14px 16px rgba(154, 100, 160, 0.25));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-princess-frame { animation: home-princess-float 4.5s ease-in-out infinite; }
+  @keyframes home-princess-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+}
+
+.home-deco {
+  position: absolute;
+  font-size: 22px;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+  z-index: 1;
+}
+.home-deco-star1 { top: -6px; left: -10px; font-size: 26px; }
+.home-deco-heart1 { bottom: 10%; right: -12px; font-size: 24px; }
+.home-deco-star2 { top: 20%; right: -6px; font-size: 18px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-deco { animation: home-deco-twinkle 2.4s ease-in-out infinite; }
+  .home-deco-heart1 { animation-delay: 0.4s; }
+  .home-deco-star2 { animation-delay: 0.8s; }
+  @keyframes home-deco-twinkle {
+    0%, 100% { opacity: 0.65; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.18); }
+  }
+}
+
+/* ---------- 下部：大きなPLAYボタン ---------- */
+.home-play-btn {
+  flex: 0 0 auto;
+  width: 78%;
+  min-width: 260px;
+  max-width: 400px;
+  min-height: 70px;
+  margin: 4px auto 0;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #FFD24D, #FF8FB1, #B18BFF);
+  background-size: 200% 200%;
+  animation: princess-shimmer 6s ease infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 10px 0 var(--shadow), 0 14px 22px rgba(0, 0, 0, 0.18);
+  color: white;
+}
+.home-play-btn:active {
+  transform: translateY(7px);
+  box-shadow: 0 3px 0 var(--shadow), 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+.home-play-icon {
+  font-size: 26px;
+  line-height: 1;
+  text-shadow: 1px 2px 2px rgba(0, 0, 0, 0.15);
+}
+.home-play-label {
+  font-size: clamp(20px, 6vw, 25px);
+  font-weight: 900;
+  text-shadow: 1px 2px 2px rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .home-play-btn { animation: princess-shimmer 6s ease infinite, home-play-pulse 2.6s ease-in-out infinite; }
+  @keyframes home-play-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-screen .home-sparkle,
+  .home-princess-frame,
+  .home-deco {
+    animation: none !important;
+  }
+  .home-play-btn { animation: none !important; }
+}
+
+/* 画面高さが低い端末でも中央のプリンセスが縮んで全体が収まるようにする */
+@media (max-height: 700px) {
+  .home-princess-frame { max-height: 38vh; }
+}
+
+/* ===================== Home（旧レイアウト用、非表示のカテゴリー等に残置） ===================== */
 .title {
   font-size: clamp(28px, 8vw, 40px);
   text-align: center;
@@ -1020,18 +1209,104 @@ button {
     80% { transform: translateY(-6px); }
   }
 
-  /* Great job!成功時：プリンセス全体が小さくbounce（既存のbounceJumpを再利用） */
-  .princess-illustration.pe-great-bounce { animation: bounceJump 0.8s ease; }
 }
 @media (prefers-reduced-motion: reduce) {
   .princess-illustration.pe-sway,
   .princess-illustration.pe-nod,
   .princess-illustration.pe-wave,
   .princess-illustration.pe-hop-small,
-  .princess-illustration.pe-hop-big,
-  .princess-illustration.pe-great-bounce {
+  .princess-illustration.pe-hop-big {
     animation: none;
   }
+}
+
+/* =====================================================================
+ * プリンセスのダンス演出（正解ごとのキラキラとは別に、発音成功時の
+ * MINI DANCEと、10問クリア時のSPECIAL DANCEで使う）。
+ * どちらも1枚の princess.webp（#princess-speak-portrait /
+ * #princess-round-portrait）に対して、bounce（translateY）・rotate・scale
+ * だけを組み合わせる。translateXによる横方向の移動、画面シェイク、
+ * 高速回転、激しい点滅は一切使わない。
+ * ===================================================================== */
+.princess-speak-portrait,
+.princess-round-portrait {
+  width: clamp(120px, 42vw, 190px);
+  height: auto;
+  aspect-ratio: 1024 / 1536;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 8px;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.15));
+}
+.princess-round-portrait {
+  width: clamp(140px, 48vw, 210px);
+  margin-bottom: 10px;
+}
+
+/* MINI DANCE：発音成功「Great job!」の瞬間、約0.8秒 */
+@media (prefers-reduced-motion: no-preference) {
+  .princess-speak-portrait.pe-mini-dance { animation: pe-mini-dance 0.8s ease; }
+  @keyframes pe-mini-dance {
+    0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+    25% { transform: translateY(-8px) rotate(-3deg) scale(1.02); }
+    50% { transform: translateY(0) rotate(3deg) scale(1); }
+    75% { transform: translateY(-6px) rotate(-2deg) scale(1.01); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .princess-speak-portrait.pe-mini-dance { animation: none; }
+}
+
+/* SPECIAL DANCE：10問クリア時、約3秒。MINI DANCEより少し豪華に、
+ * 「左に少し傾く→ジャンプ→右に少し傾く→ジャンプ→少し大きくなって着地」。 */
+@media (prefers-reduced-motion: no-preference) {
+  .princess-round-portrait.pe-special-dance { animation: pe-special-dance 3s ease; }
+  @keyframes pe-special-dance {
+    0%   { transform: translateY(0) rotate(0deg) scale(1); }
+    10%  { transform: translateY(0) rotate(-6deg) scale(1); }
+    30%  { transform: translateY(-24px) rotate(-2deg) scale(1.04); }
+    45%  { transform: translateY(0) rotate(0deg) scale(1); }
+    55%  { transform: translateY(0) rotate(6deg) scale(1); }
+    75%  { transform: translateY(-24px) rotate(2deg) scale(1.04); }
+    90%  { transform: translateY(0) rotate(0deg) scale(1.06); }
+    100% { transform: translateY(0) rotate(0deg) scale(1); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .princess-round-portrait.pe-special-dance { animation: none; }
+}
+
+/* 10問クリア「You did it!」大きな見出し */
+.princess-you-did-it {
+  font-size: clamp(26px, 8vw, 38px);
+  font-weight: 800;
+  color: #FF6FA5;
+  margin: 4px 0 10px;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* 大きなPLAY AGAINボタン（子どもが絶対に押せるサイズを目安に） */
+.princess-play-again-btn {
+  width: 82%;
+  max-width: 380px;
+  min-height: 70px;
+  margin-top: 14px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(120deg, #FFD24D, #FF8FB1, #B18BFF);
+  background-size: 200% 200%;
+  animation: princess-shimmer 6s ease infinite;
+  color: white;
+  font-size: clamp(19px, 5.5vw, 23px);
+  font-weight: 800;
+  box-shadow: 0 10px 0 var(--shadow), 0 14px 24px rgba(0, 0, 0, 0.18);
+}
+.princess-play-again-btn:active {
+  transform: translateY(6px);
+  box-shadow: 0 4px 0 var(--shadow), 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+@media (prefers-reduced-motion: reduce) {
+  .princess-play-again-btn { animation: none; }
 }
 
 /* eyes専用：両目のhotspot位置に重ねる「まばたき」風オーバーレイ。

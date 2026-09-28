@@ -123,11 +123,13 @@
       jp: "ゆびは どこ？",
       plural: true,
       hotspots: [
-        // UPPER BODY VIEW（ズーム後）でも画面外に切れないよう、画像の
-        // 端ぎりぎり（0%・100%）から少しだけ内側に寄せてある
-        // （handsのhotspotと接する内側の境界はそのまま、外側だけを詰めた）。
-        { left: 3, top: 47, width: 6, height: 11 }, // 左ゆび
-        { left: 80, top: 40, width: 11, height: 6 }, // 右ゆび
+        // 実際の画像を計測すると、指先はx=0%（左）/x=100%（右）の
+        // 画像の端ちょうどまで写っている。UPPER BODY VIEWのズームで
+        // 画面外に切れないようにするためだけにhotspotを内側へ動かす
+        // （実画像とズレさせる）ことはしない方針のため、実測どおりの
+        // 座標のままにしてある（カメラ側のscaleX=1で対応する）。
+        { left: 0, top: 47, width: 9, height: 11 }, // 左ゆび
+        { left: 85, top: 40, width: 15, height: 6 }, // 右ゆび
       ],
     },
     {
@@ -165,18 +167,27 @@
   /*
    * 問題のbody partに応じて、プリンセスの見せ方（カメラの寄り方）を
    * 自動的に変える設定。
-   *   scale: 何倍に拡大するか（1 = 等倍＝現在に近い全身表示）
+   *   scaleX/scaleY: 横方向・縦方向、それぞれ何倍に拡大するか（1=等倍）。
+   *                  実測した結果、指先が画像の左右の端(0%/100%)ぎりぎり
+   *                  まで写っているため、hands/fingers のUPPER BODY VIEWだけ
+   *                  scaleX=1（横方向は拡大しない＝絶対に切れない）にしつつ、
+   *                  scaleYだけ大きくして「縦方向にだけ寄って脚を画面外に
+   *                  追い出す」構図にしている（横に伸び縮みしないので、
+   *                  手の左右位置がズレる心配がない）。
    *   focusX/focusY: 画像の%座標（hotspotsと同じ基準）のうち、ズーム後も
    *                  画面中央に来続けさせたい点。
-   * #princess-camera 要素に scale(s) translate(tx%, ty%) を設定することで、
-   * 「focusX%, focusY% の点がステージ中央に来る」ような拡大を実現する
-   * （tx = 50/s - focusX, ty = 50/s - focusY）。画像とhotspotは同じ
-   * #princess-camera の中に入っているため、常に完全に一致したまま動く。
+   * #princess-camera 要素に scale(sx, sy) translate(tx%, ty%) を設定する
+   * ことで、「focusX%, focusY% の点がステージ中央に来る」ような拡大を
+   * 実現する（tx = 50/sx - focusX, ty = 50/sy - focusY）。画像とhotspotは
+   * 同じ #princess-camera の中に入っているため、常に完全に一致したまま動く。
    */
   const PRINCESS_CAMERA_VIEWS = {
-    face: { scale: 1.6, focusX: 50, focusY: 24 }, // 顔〜上半身を大きく
-    upper: { scale: 1.1, focusX: 50, focusY: 40 }, // 上半身＋両手（画面外に切れないよう控えめに）
-    full: { scale: 1, focusX: 50, focusY: 50 }, // 現在に近い全身表示
+    face: { scaleX: 1.6, scaleY: 1.6, focusX: 50, focusY: 24 }, // 顔〜上半身を大きく
+    // 上半身＋両手。指先が画像の端(0%/100%)まで写っているため、横方向は
+    // 拡大しない(scaleX=1)ことで両手・両指が絶対に画面外へ切れないように
+    // しつつ、縦方向だけ拡大(scaleY)して脚から下を画面外に追い出す。
+    upper: { scaleX: 1, scaleY: 1.7, focusX: 50, focusY: 33 },
+    full: { scaleX: 1, scaleY: 1, focusX: 50, focusY: 50 }, // 現在に近い全身表示
   };
   const PRINCESS_PART_VIEW = {
     head: "face",
@@ -202,13 +213,16 @@
   const princessQuestionJpEl = document.getElementById("princess-question-jp");
   const princessReplayBtn = document.getElementById("princess-replay-btn");
   const princessSpeakOverlay = document.getElementById("princess-speak-overlay");
-  const princessSpeakEmojiEl = document.getElementById("princess-speak-emoji");
+  const princessSpeakPortraitEl = document.getElementById("princess-speak-portrait");
   const princessMicIconEl = document.getElementById("princess-mic-icon");
   const princessSpeakWordEl = document.getElementById("princess-speak-word");
   const princessMicStatusEl = document.getElementById("princess-mic-status");
   const princessHearExampleBtn = document.getElementById("princess-hear-example-btn");
   const princessSkipBtn = document.getElementById("princess-skip-btn");
   const princessRoundCompleteEl = document.getElementById("princess-round-complete");
+  const princessYouDidItEl = document.getElementById("princess-you-did-it");
+  const princessRoundPortraitEl = document.getElementById("princess-round-portrait");
+  const princessRoundSubEl = document.getElementById("princess-round-sub");
   const princessRoundScoreEl = document.getElementById("princess-round-score");
   const princessAgainBtn = document.getElementById("princess-again-btn");
   const princessHomeBtn = document.getElementById("princess-home-btn");
@@ -264,11 +278,11 @@
   }
 
   /**
-   * 現在 #princess-camera に適用中の transform（scale/tx/ty）。
+   * 現在 #princess-camera に適用中の transform（scaleX/scaleY/tx/ty）。
    * spawnTiaraSparkle など「%座標→ステージ内px」の変換をする処理が、
    * ズーム中でも正しい画面位置を計算できるように保持しておく。
    */
-  let princessCurrentCamera = { scale: 1, tx: 0, ty: 0 };
+  let princessCurrentCamera = { scaleX: 1, scaleY: 1, tx: 0, ty: 0 };
 
   /**
    * 問題のbody partに応じて、プリンセスの見せ方（顔アップ／上半身／全身）を
@@ -279,12 +293,13 @@
   function applyPrincessCameraView(part) {
     const viewName = (part && PRINCESS_PART_VIEW[part.id]) || "full";
     const view = PRINCESS_CAMERA_VIEWS[viewName] || PRINCESS_CAMERA_VIEWS.full;
-    const s = view.scale;
-    const tx = 50 / s - view.focusX;
-    const ty = 50 / s - view.focusY;
-    princessCurrentCamera = { scale: s, tx, ty };
+    const sx = view.scaleX;
+    const sy = view.scaleY;
+    const tx = 50 / sx - view.focusX;
+    const ty = 50 / sy - view.focusY;
+    princessCurrentCamera = { scaleX: sx, scaleY: sy, tx, ty };
     if (princessCameraEl) {
-      princessCameraEl.style.transform = `scale(${s}) translate(${tx}%, ${ty}%)`;
+      princessCameraEl.style.transform = `scale(${sx}, ${sy}) translate(${tx}%, ${ty}%)`;
     }
   }
 
@@ -311,8 +326,8 @@
   function stagePercentToPx(leftPct, topPct) {
     const stageRect = princessStageEl.getBoundingClientRect();
     const cam = princessCurrentCamera;
-    const fx = (leftPct / 100 + cam.tx / 100) * cam.scale;
-    const fy = (topPct / 100 + cam.ty / 100) * cam.scale;
+    const fx = (leftPct / 100 + cam.tx / 100) * cam.scaleX;
+    const fy = (topPct / 100 + cam.ty / 100) * cam.scaleY;
     return { cx: fx * stageRect.width, cy: fy * stageRect.height };
   }
 
@@ -447,33 +462,34 @@
   }
 
   /**
-   * 発音練習が成功した「Great job!」の瞬間の、短いお祝い演出（約1〜1.5秒）。
+   * 発音練習が成功した「Great job!」の瞬間の、短いお祝い演出（MINI DANCE、
+   * 約0.8秒）。
    *
    * このタイミングでは #princess-speak-overlay（不透明度95%のカード）が
    * プリンセス本体の上に被さっているため、ステージ側（#princess-fx-layer /
    * プリンセス画像本体）に演出を出しても子どもには見えない。そのため、
-   * 1) 実際に見えているスピークカード側のプリンセス絵文字(👸)をbounceさせ、
-   * 2) 星とconfettiも、隠れているステージではなく表示中のオーバーレイの上に
-   * 出す。
+   * カード内に実際のprincess.webp画像（#princess-speak-portrait）を表示して
+   * おき、そこに直接 bounce+rotate+scale の「ミニダンス」アニメーションを
+   * かける。星とハートも、隠れているステージではなく表示中のオーバーレイの
+   * 上に出す。translateXで横にスライドするような動きは一切使わない。
    */
   function playGreatJobCelebration() {
-    // ステージ上の本体（次の質問で見える状態に戻った時のための演出）も一応bounceさせる。
-    triggerBodyMotion("pe-great-bounce", 800);
-    // 今まさに見えているスピークカードの👸も、既存のbounce-jump（Zoo Adventureと共通）でbounce。
-    if (princessSpeakEmojiEl) {
-      princessSpeakEmojiEl.classList.remove("bounce-jump");
-      void princessSpeakEmojiEl.offsetWidth;
-      princessSpeakEmojiEl.classList.add("bounce-jump");
-      setTimeout(() => princessSpeakEmojiEl.classList.remove("bounce-jump"), 800);
+    // reduced motionではミニダンス自体を無効化する（CSS側の保険だけでなく、
+    // クラス付与自体をJS側でもスキップして、他の動きクラスと同じ方針に揃える）。
+    if (princessSpeakPortraitEl && !prefersReducedMotion()) {
+      princessSpeakPortraitEl.classList.remove("pe-mini-dance");
+      void princessSpeakPortraitEl.offsetWidth;
+      princessSpeakPortraitEl.classList.add("pe-mini-dance");
+      setTimeout(() => princessSpeakPortraitEl.classList.remove("pe-mini-dance"), 900);
     }
 
     const overlayRect = princessSpeakOverlay.getBoundingClientRect();
     const topY = overlayRect.height * 0.14;
-    const starChars = ["✨", "⭐", "💫"];
-    for (let i = 0; i < 6; i++) {
+    const sparkleChars = ["✨", "⭐", "💫", "💗", "💕"];
+    for (let i = 0; i < 7; i++) {
       const s = document.createElement("div");
       s.className = "princess-sparkle";
-      s.textContent = starChars[i % starChars.length];
+      s.textContent = sparkleChars[i % sparkleChars.length];
       const x = overlayRect.width * (0.2 + Math.random() * 0.6);
       s.style.left = x + "px";
       s.style.top = topY + "px";
@@ -720,7 +736,7 @@
   function enterPrincessSpeakPhase(part) {
     princess.pendingPart = part;
 
-    princessSpeakEmojiEl.textContent = "👸";
+    if (princessSpeakPortraitEl) princessSpeakPortraitEl.classList.remove("pe-mini-dance");
     princessMicIconEl.classList.remove("listening");
     princessSpeakWordEl.textContent = part.en.toUpperCase();
     princessMicStatusEl.textContent = "";
@@ -842,11 +858,117 @@
     askNextPrincessQuestion();
   }
 
-  /* ===================== ラウンド終了 ===================== */
+  /* ===================== ラウンド終了：SPECIAL DANCE ===================== */
 
+  const SPECIAL_DANCE_MS = 3000; // プリンセスがダンスしている間の表示時間
+  const SPECIAL_DANCE_REDUCED_MS = 900; // reduced motion時：ダンス無しで"You did it!"だけ少し見せる時間
+
+  /**
+   * 10問クリア時の演出。
+   * 1) "You did it!"を大きく表示（音声でも読み上げ）
+   * 2) プリンセス（実写画像）がSPECIAL DANCE（約3秒、bounce+rotate+scaleのみ、
+   *    左右への大移動やtranslateXの横スライドは一切なし）
+   * 3) 星・ハート・紙吹雪を数回に分けて表示（アニメーション終了後は必ずDOMから削除）
+   * 4) "You did it!"を隠し、結果スコア＋"Great job!"＋大きなPLAY AGAINボタンを表示
+   *
+   * prefers-reduced-motion: reduce の場合は、ダンス・紙吹雪を一切出さず、
+   * 静的な星と"You did it!"表示だけの短いお祝いにする。
+   */
   function finishPrincessRound() {
-    princessRoundScoreEl.textContent = `${princess.score} / ${princess.order.length} こ できたね！`;
+    Speech.cancelSpeaking();
+    Speech.stopListening();
+
     princessRoundCompleteEl.hidden = false;
+    princessYouDidItEl.hidden = false;
+    princessRoundSubEl.hidden = true;
+    princessRoundScoreEl.hidden = true;
+    princessAgainBtn.hidden = true;
+    princessHomeBtn.hidden = true;
+
+    Speech.speak("You did it!");
+
+    const reduced = prefersReducedMotion();
+    if (!reduced) {
+      if (princessRoundPortraitEl) {
+        princessRoundPortraitEl.classList.remove("pe-special-dance");
+        void princessRoundPortraitEl.offsetWidth;
+        princessRoundPortraitEl.classList.add("pe-special-dance");
+      }
+      spawnRoundCelebrationParticles();
+    } else {
+      // 静的な星だけを、動きなしで少し表示する
+      spawnRoundCelebrationParticles({ staticOnly: true });
+    }
+
+    setTimeout(() => {
+      if (princessRoundPortraitEl) princessRoundPortraitEl.classList.remove("pe-special-dance");
+      princessYouDidItEl.hidden = true;
+      princessRoundSubEl.hidden = false;
+      princessRoundScoreEl.hidden = false;
+      princessRoundScoreEl.textContent = `${princess.score} / ${princess.order.length} こ できたね！`;
+      princessAgainBtn.hidden = false;
+      princessHomeBtn.hidden = false;
+      Speech.speak("Great job!");
+    }, reduced ? SPECIAL_DANCE_REDUCED_MS : SPECIAL_DANCE_MS);
+  }
+
+  /**
+   * ラウンド終了カードの上に、星・ハート・紙吹雪をまとめて表示する。
+   * どの要素も自分のアニメーション終了後、setTimeoutで必ずDOMから削除する。
+   * staticOnly指定時（reduced motion）は、動かない星を少数だけ短時間表示する。
+   */
+  function spawnRoundCelebrationParticles(options) {
+    const staticOnly = !!(options && options.staticOnly);
+    const overlayRect = princessRoundCompleteEl.getBoundingClientRect();
+    const sparkleChars = ["✨", "⭐", "💫", "💗", "💕"];
+    const confettiColors = ["#FFD24D", "#FF8FB1", "#B18BFF", "#8FE3C0"];
+
+    function starBurst(count) {
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement("div");
+        s.className = "princess-sparkle";
+        s.textContent = sparkleChars[i % sparkleChars.length];
+        const x = overlayRect.width * (0.12 + Math.random() * 0.76);
+        const y = overlayRect.height * (0.16 + Math.random() * 0.26);
+        s.style.left = x + "px";
+        s.style.top = y + "px";
+        if (staticOnly) {
+          // reduced motionでは.princess-sparkleのanimationがCSS側でnoneになり
+          // 静止した状態で表示され続ける（ここでは短い寿命だけJS側で管理）。
+          s.style.opacity = "0.95";
+        } else {
+          const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2;
+          const dist = 26 + Math.random() * 24;
+          s.style.setProperty("--sx", Math.cos(angle) * dist + "px");
+          s.style.setProperty("--sy", Math.sin(angle) * dist - 10 + "px");
+        }
+        princessRoundCompleteEl.appendChild(s);
+        setTimeout(() => s.remove(), staticOnly ? SPECIAL_DANCE_REDUCED_MS : 1000);
+      }
+    }
+
+    if (staticOnly) {
+      starBurst(5);
+      return;
+    }
+
+    starBurst(8);
+    const t1 = setTimeout(() => starBurst(8), 1100);
+    const t2 = setTimeout(() => starBurst(6), 2100);
+
+    for (let i = 0; i < 10; i++) {
+      const c = document.createElement("div");
+      c.className = "princess-confetti-piece";
+      c.style.left = overlayRect.width * Math.random() + "px";
+      c.style.background = confettiColors[i % confettiColors.length];
+      c.style.animationDelay = Math.random() * 0.6 + "s";
+      princessRoundCompleteEl.appendChild(c);
+      setTimeout(() => c.remove(), 2000);
+    }
+    // タイマーは全てワンショット（setTimeout）であり、advancePrincessQuestion等の
+    // 状態には触れないため、ラウンドが早期に離脱されても他の処理に影響しない。
+    void t1;
+    void t2;
   }
 
   princessAgainBtn.addEventListener("click", () => {
