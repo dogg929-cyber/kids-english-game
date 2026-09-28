@@ -213,15 +213,54 @@
   }
 
   /**
-   * 正解した部位のあたり（hotspot要素の実際の位置）に、光る輪とキラキラを表示する。
+   * 見た目に依存しない「今実際に画面に表示されているプリンセス本体の要素」を返す。
+   * PRINCESS_CONFIG.imageSrc 設定時、ensurePrincessVisual() は元の
+   * .princess-illustration（SVG、display:noneで隠される）はそのまま残し、
+   * 同じクラス名を持つ新しい<img>要素を追加で挿入する。起動時に一度だけ
+   * 取得した princessImgHost 定数はその「元のSVG」を指したままになるため、
+   * ボディモーション（揺れ・ジャンプ等）をそこに適用しても実際には見えない
+   * （SVG側が非表示のまま）。そのため、演出を適用する瞬間に毎回、実際に
+   * 表示されている方（<img>があればそれ、なければ元のSVG）を探し直す。
+   */
+  function getVisiblePrincessEl() {
+    return princessStageEl.querySelector("img.princess-illustration") || princessImgHost;
+  }
+
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  /**
+   * hotspot要素（実際にタップされた領域）の、ステージ内での中心座標(px)を返す。
    * イラストがSVGでもPNGでも、hotspot要素自体の実測位置を使うので同じコードで動く。
    */
-  function launchPrincessSparkle(hotspotEl) {
+  function stageRelativeCenter(hotspotEl) {
     const stageRect = princessStageEl.getBoundingClientRect();
     const spotRect = hotspotEl.getBoundingClientRect();
-    const cx = spotRect.left - stageRect.left + spotRect.width / 2;
-    const cy = spotRect.top - stageRect.top + spotRect.height / 2;
-    const size = Math.max(spotRect.width, spotRect.height) * 1.6;
+    return {
+      cx: spotRect.left - stageRect.left + spotRect.width / 2,
+      cy: spotRect.top - stageRect.top + spotRect.height / 2,
+      width: spotRect.width,
+      height: spotRect.height,
+    };
+  }
+
+  /** ステージの%座標(PRINCESS_BODY_PARTSのhotspotsと同じ基準)をステージ内px座標に変換する。 */
+  function stagePercentToPx(leftPct, topPct) {
+    const stageRect = princessStageEl.getBoundingClientRect();
+    return { cx: (leftPct / 100) * stageRect.width, cy: (topPct / 100) * stageRect.height };
+  }
+
+  /**
+   * タップした場所に「小さな光」と「星・キラキラ」を表示する。
+   * cx, cy はステージ内のpx座標（stageRelativeCenter / stagePercentToPxで求めたもの）。
+   */
+  function spawnHitEffect(cx, cy, refSize, options) {
+    const opts = options || {};
+    const chars = opts.chars || ["✨", "⭐", "💫"];
+    const count = opts.count != null ? opts.count : 6;
+    const biasUp = !!opts.biasUp;
+    const size = Math.max(refSize || 40, 28) * 1.6;
 
     const ring = document.createElement("div");
     ring.className = "princess-glow-ring";
@@ -232,19 +271,166 @@
     princessFxLayerEl.appendChild(ring);
     setTimeout(() => ring.remove(), 1000);
 
-    const sparkleChars = ["✨", "⭐", "💫"];
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement("div");
+      s.className = "princess-sparkle";
+      s.textContent = chars[i % chars.length];
+      s.style.left = cx + "px";
+      s.style.top = cy + "px";
+      // biasUp（headのティアラ演出など）の場合は、ほぼ真上方向に星が飛ぶようにする。
+      const angle = biasUp
+        ? -Math.PI / 2 + (Math.random() - 0.5) * 0.8
+        : (Math.PI * 2 * i) / count + Math.random() * 0.4;
+      const dist = biasUp ? 30 + Math.random() * 22 : 26 + Math.random() * 18;
+      s.style.setProperty("--sx", Math.cos(angle) * dist + "px");
+      s.style.setProperty("--sy", Math.sin(angle) * dist - (biasUp ? 6 : 10) + "px");
+      princessFxLayerEl.appendChild(s);
+      setTimeout(() => s.remove(), 1000);
+    }
+  }
+
+  /** プリンセス本体に、部位に応じた軽いボディモーション（揺れ・ジャンプ等）のCSSクラスを一瞬つける。 */
+  function triggerBodyMotion(className, durationMs) {
+    if (prefersReducedMotion()) return; // 大きな動きは reduced motion では無効化
+    const el = getVisiblePrincessEl();
+    if (!el) return;
+    el.classList.remove(className); // 連続で同じ部位が続けて出た場合に再生し直せるようにする
+    // eslint-disable-next-line no-unused-expressions
+    void el.offsetWidth; // reflow強制でアニメーションを確実に再スタートさせる
+    el.classList.add(className);
+    setTimeout(() => el.classList.remove(className), durationMs);
+  }
+
+  /** eyes専用：両目のhotspot要素の実測位置に「まばたき」風オーバーレイを一瞬重ねる。 */
+  function spawnBlinkOverlay() {
+    if (prefersReducedMotion()) return;
+    const eyeButtons = princessHotspotsEl.querySelectorAll('.princess-hotspot[aria-label="eyes"]');
+    eyeButtons.forEach((btn) => {
+      const stageRect = princessStageEl.getBoundingClientRect();
+      const r = btn.getBoundingClientRect();
+      const lid = document.createElement("div");
+      lid.className = "princess-blink-lid";
+      lid.style.left = r.left - stageRect.left + "px";
+      lid.style.top = r.top - stageRect.top + "px";
+      lid.style.width = r.width + "px";
+      lid.style.height = r.height + "px";
+      princessFxLayerEl.appendChild(lid);
+      setTimeout(() => lid.remove(), 550);
+    });
+  }
+
+  /** head専用：ティアラ付近から星が上に飛ぶ、おまけの演出（タップ位置の光とは別に追加）。 */
+  function spawnTiaraSparkle() {
+    const { cx, cy } = stagePercentToPx(50, 4);
+    spawnHitEffect(cx, cy, 30, { chars: ["✨", "⭐"], count: 3, biasUp: true });
+  }
+
+  /**
+   * 部位ごとの「正解リアクション」をまとめて再生する。
+   * 1) 実際にタップされたhotspotの位置から光＋キラキラ（部位ごとに絵文字を変える）
+   * 2) 部位に応じて、プリンセス本体に軽いボディモーション（揺れ・ジャンプ等）
+   * 3) head/eyesだけ追加の演出（ティアラの光／まばたき風オーバーレイ）
+   * どの演出も、tapされたhotspot要素自身の実測位置（%座標から算出した実ピクセル）
+   * を使うので、左右どちらの手足を押したかで発生位置が変わり、画面サイズが
+   * 変わっても常に正しい部位の位置から演出が出る。
+   */
+  function playPrincessCorrectReaction(part, hotspotEl) {
+    const { cx, cy, width, height } = stageRelativeCenter(hotspotEl);
+    const refSize = Math.max(width, height);
+
+    switch (part.id) {
+      case "head":
+        spawnHitEffect(cx, cy, refSize, { chars: ["✨", "⭐", "💫"], count: 6 });
+        spawnTiaraSparkle();
+        break;
+      case "hair":
+        spawnHitEffect(cx, cy, refSize, { chars: ["✨", "⭐", "💫"], count: 6 });
+        triggerBodyMotion("pe-sway", 600);
+        break;
+      case "eyes":
+        spawnHitEffect(cx, cy, refSize, { chars: ["✨", "⭐"], count: 5 });
+        spawnBlinkOverlay();
+        break;
+      case "ears":
+        spawnHitEffect(cx, cy, refSize, { chars: ["🎵", "♪", "✨"], count: 5 });
+        break;
+      case "nose":
+        spawnHitEffect(cx, cy, refSize, { chars: ["✨", "⭐"], count: 2 });
+        break;
+      case "mouth":
+        spawnHitEffect(cx, cy, refSize, { chars: ["💗", "💕", "✨"], count: 5 });
+        triggerBodyMotion("pe-nod", 600);
+        break;
+      case "hands":
+        spawnHitEffect(cx, cy, refSize, { chars: ["✨", "⭐", "💫"], count: 6 });
+        triggerBodyMotion("pe-wave", 600);
+        break;
+      case "fingers":
+        spawnHitEffect(cx, cy, refSize, { chars: ["✨", "⭐", "✨", "⭐"], count: 7 });
+        break;
+      case "legs":
+        spawnHitEffect(cx, cy, refSize, { chars: ["✨", "⭐"], count: 5 });
+        triggerBodyMotion("pe-hop-small", 500);
+        break;
+      case "feet":
+        spawnHitEffect(cx, cy, refSize, { chars: ["✨", "⭐", "💫"], count: 6 });
+        triggerBodyMotion("pe-hop-big", 600);
+        break;
+      default:
+        spawnHitEffect(cx, cy, refSize);
+    }
+  }
+
+  /**
+   * 発音練習が成功した「Great job!」の瞬間の、短いお祝い演出（約1〜1.5秒）。
+   *
+   * このタイミングでは #princess-speak-overlay（不透明度95%のカード）が
+   * プリンセス本体の上に被さっているため、ステージ側（#princess-fx-layer /
+   * プリンセス画像本体）に演出を出しても子どもには見えない。そのため、
+   * 1) 実際に見えているスピークカード側のプリンセス絵文字(👸)をbounceさせ、
+   * 2) 星とconfettiも、隠れているステージではなく表示中のオーバーレイの上に
+   * 出す。
+   */
+  function playGreatJobCelebration() {
+    // ステージ上の本体（次の質問で見える状態に戻った時のための演出）も一応bounceさせる。
+    triggerBodyMotion("pe-great-bounce", 800);
+    // 今まさに見えているスピークカードの👸も、既存のbounce-jump（Zoo Adventureと共通）でbounce。
+    if (princessSpeakEmojiEl) {
+      princessSpeakEmojiEl.classList.remove("bounce-jump");
+      void princessSpeakEmojiEl.offsetWidth;
+      princessSpeakEmojiEl.classList.add("bounce-jump");
+      setTimeout(() => princessSpeakEmojiEl.classList.remove("bounce-jump"), 800);
+    }
+
+    const overlayRect = princessSpeakOverlay.getBoundingClientRect();
+    const topY = overlayRect.height * 0.14;
+    const starChars = ["✨", "⭐", "💫"];
     for (let i = 0; i < 6; i++) {
       const s = document.createElement("div");
       s.className = "princess-sparkle";
-      s.textContent = sparkleChars[i % sparkleChars.length];
-      s.style.left = cx + "px";
-      s.style.top = cy + "px";
-      const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.4;
-      const dist = 26 + Math.random() * 18;
+      s.textContent = starChars[i % starChars.length];
+      const x = overlayRect.width * (0.2 + Math.random() * 0.6);
+      s.style.left = x + "px";
+      s.style.top = topY + "px";
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.6;
+      const dist = 24 + Math.random() * 20;
       s.style.setProperty("--sx", Math.cos(angle) * dist + "px");
-      s.style.setProperty("--sy", Math.sin(angle) * dist - 10 + "px");
-      princessFxLayerEl.appendChild(s);
+      s.style.setProperty("--sy", Math.sin(angle) * dist - 8 + "px");
+      princessSpeakOverlay.appendChild(s);
       setTimeout(() => s.remove(), 1000);
+    }
+
+    if (!prefersReducedMotion()) {
+      const confettiColors = ["#FFD24D", "#FF8FB1", "#B18BFF", "#8FE3C0"];
+      for (let i = 0; i < 8; i++) {
+        const c = document.createElement("div");
+        c.className = "princess-confetti-piece";
+        c.style.left = overlayRect.width * Math.random() + "px";
+        c.style.background = confettiColors[i % confettiColors.length];
+        c.style.animationDelay = Math.random() * 0.15 + "s";
+        princessSpeakOverlay.appendChild(c);
+        setTimeout(() => c.remove(), 1400);
+      }
     }
   }
 
@@ -402,9 +588,8 @@
 
     // 正解！
     princess.awaitingPick = false;
-    launchPrincessSparkle(hotspotEl);
+    playPrincessCorrectReaction(target, hotspotEl);
     playPrincessCorrectSound();
-    if (princessImgHost) princessImgHost.classList.add("bounce-jump");
 
     Speech.speak(`${capitalize(target.en)}!`, {
       onEnd: () => enterPrincessSpeakPhase(target),
@@ -526,7 +711,6 @@
     if (!part) return;
     Speech.cancelSpeaking();
     Speech.stopListening();
-    if (princessImgHost) princessImgHost.classList.remove("bounce-jump");
     princess.pendingPart = null;
     princessSpeakOverlay.hidden = true;
     advancePrincessQuestion();
@@ -540,9 +724,9 @@
     princessScoreEl.textContent = princess.score;
     princessMicStatusEl.textContent = "Great job! 🎉";
     Speech.speak("Great job!");
+    playGreatJobCelebration();
 
     setTimeout(() => {
-      if (princessImgHost) princessImgHost.classList.remove("bounce-jump");
       princessSpeakOverlay.hidden = true;
       advancePrincessQuestion();
     }, CORRECT_CELEBRATE_DELAY_MS);

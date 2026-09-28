@@ -920,3 +920,112 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .princess-sparkle { display: none; }
 }
+
+/* ===================== 正解時：部位ごとのボディモーション =====================
+ * すべて.princess-illustration（表示中の実体、imgまたはSVG）に一瞬だけ付ける
+ * クラス。画像自体を歪ませる変形（顔のパーツだけを動かす等）はせず、
+ * 画像全体のtranslate/rotateだけで「動いたように見える」演出にとどめる。
+ * prefers-reduced-motion: reduce の場合はJS側でクラス付与自体をスキップするが、
+ * 保険としてCSS側でもanimation:noneにしておく。 */
+@media (prefers-reduced-motion: no-preference) {
+  /* hair: 髪が揺れたような、ごく軽い左右の傾き */
+  .princess-illustration.pe-sway {
+    animation: pe-sway 0.6s ease;
+    transform-origin: 50% 12%;
+  }
+  @keyframes pe-sway {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-3deg); }
+    55% { transform: rotate(2.5deg); }
+    80% { transform: rotate(-1deg); }
+  }
+
+  /* mouth: 喜んで少し上下にはずむ */
+  .princess-illustration.pe-nod { animation: pe-nod 0.6s ease; }
+  @keyframes pe-nod {
+    0%, 100% { transform: translateY(0); }
+    30% { transform: translateY(5px); }
+    60% { transform: translateY(-3px); }
+  }
+
+  /* hands: 手を振ったような、軽い左右の揺れ */
+  .princess-illustration.pe-wave {
+    animation: pe-wave 0.6s ease;
+    transform-origin: 50% 100%;
+  }
+  @keyframes pe-wave {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(-5px) rotate(-1.5deg); }
+    55% { transform: translateX(5px) rotate(1.5deg); }
+    80% { transform: translateX(-2px) rotate(-0.5deg); }
+  }
+
+  /* legs: その場で軽くはずむ */
+  .princess-illustration.pe-hop-small { animation: pe-hop-small 0.5s ease; }
+  @keyframes pe-hop-small {
+    0%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-8px); }
+    70% { transform: translateY(0); }
+  }
+
+  /* feet: 少し大きめのジャンプ */
+  .princess-illustration.pe-hop-big { animation: pe-hop-big 0.6s ease; }
+  @keyframes pe-hop-big {
+    0%, 100% { transform: translateY(0); }
+    35% { transform: translateY(-22px); }
+    60% { transform: translateY(0); }
+    80% { transform: translateY(-6px); }
+  }
+
+  /* Great job!成功時：プリンセス全体が小さくbounce（既存のbounceJumpを再利用） */
+  .princess-illustration.pe-great-bounce { animation: bounceJump 0.8s ease; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .princess-illustration.pe-sway,
+  .princess-illustration.pe-nod,
+  .princess-illustration.pe-wave,
+  .princess-illustration.pe-hop-small,
+  .princess-illustration.pe-hop-big,
+  .princess-illustration.pe-great-bounce {
+    animation: none;
+  }
+}
+
+/* eyes専用：両目のhotspot位置に重ねる「まばたき」風オーバーレイ。
+   画像そのものを変形させず、肌色に近い小さな帯を一瞬かぶせるだけ。 */
+.princess-blink-lid {
+  position: absolute;
+  background: linear-gradient(180deg, #f0c9a6 0%, #e0ac82 100%);
+  border-radius: 40%;
+  transform-origin: center;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .princess-blink-lid { animation: pe-blink 0.5s ease; }
+  @keyframes pe-blink {
+    0% { transform: scaleY(0); opacity: 0; }
+    35% { transform: scaleY(1); opacity: 0.95; }
+    70% { transform: scaleY(1); opacity: 0.95; }
+    100% { transform: scaleY(0); opacity: 0; }
+  }
+}
+/* prefers-reduced-motion時はJS側でspawnBlinkOverlay自体を呼ばないため、
+   このクラスの要素が生成されることはない。 */
+
+/* Great job!のお祝い：軽い紙吹雪（confetti）。画面上部から短く降らせて自動で消す。 */
+.princess-confetti-piece {
+  position: absolute;
+  top: -14px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0.95;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .princess-confetti-piece { animation: pe-confetti-fall 1.1s ease-in forwards; }
+  @keyframes pe-confetti-fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(220px) rotate(340deg); opacity: 0; }
+  }
+}
+/* prefers-reduced-motion時はJS側で紙吹雪自体を生成しない。 */
