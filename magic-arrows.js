@@ -1,46 +1,58 @@
 "use strict";
 
 /**
- * MAGIC ARROWS（非言語のタップパズルゲーム / Arrow Escape方式）
+ * MAGIC ARROWS（非言語のタップパズルゲーム / Arrow Escape方式 / STAGE制）
  * ---------------------------------------------------------------------
  * 英語学習・発音練習（speech.js / SpeechRecognition / SpeechSynthesis）とは
  * 完全に独立したミニゲーム。文字が読めなくても、説明文を読まなくても
  * 100%遊べることを目標に設計している。
  *
- * ルール（Arrow Escape系。旧「四角いタイルの中に矢印」方式は完全廃止）：
+ * ルール（Arrow Escape系）：
  *   盤面には「1本の長い折れ曲がった線」そのものがArrowとして複数置かれている。
- *   直線・L字・コの字（U字）・階段状・ジグザグなど、形は様々。
- *   Arrowをタップすると、そのArrow全体（形は絶対に変形しない・剛体）が
- *   自分の出口方向(exitDirection)へ向かって平行移動する。
+ *   終点には大きく明確なarrowhead(▶◀▲▼相当)が付いており、どちらへ進む線かが
+ *   一目で分かる。Arrowをタップすると、そのArrow全体（形は絶対に変形しない・
+ *   剛体）が自分の出口方向(exitDirection)へ向かって平行移動する。
  *     - 他のArrowに一切触れずに盤面の外まで出られるなら → そのまま画面外へ
  *       消える（exit成功）。
  *     - 途中で他のArrowに触れる場合 → 触れる位置まで進み、コツンと当たって
  *       LIFEを1つ減らし、元の位置へ戻る（collide）。
  *   衝突判定は「Arrow全体 × 他Arrow全体」を、線の太さを含めて全line segment
- *   同士で行う（先端だけを見る判定は禁止）。L字やコの字は、先端が空いていても
- *   曲がった部分の胴体や横棒が他Arrowにぶつかってblockedになることがある。
+ *   同士で行う（先端だけを見る判定は禁止）。
+ *
+ * STAGE制：
+ *   LEVEL 1 = STAGE 1〜10 / LEVEL 2 = STAGE 11〜20 / LEVEL 3 = STAGE 21〜30、
+ *   というようにSTAGEを10個ずつまとめてLEVELとして表示する
+ *   （level = Math.ceil(stage / STAGES_PER_LEVEL)）。盤面データは
+ *   magic-arrow-levels.js の MAGIC_ARROW_STAGES 配列（{stage,level,boardSize,
+ *   arrows}の配列）から取得する。将来STAGE100まで拡張する場合は、この配列へ
+ *   要素を追記するだけでよく、magic-arrows.js側のロジックは一切変更不要
+ *   （MAX_STAGE/LEVEL数はすべてMAGIC_ARROW_STAGES.lengthから自動算出される）。
+ *
+ * 進捗保存：
+ *   localStorageへ highestUnlockedStage を保存する。STAGE 1のみ最初から解放
+ *   されており、STAGE Nをクリアすると STAGE N+1 が解放される。データ破損時は
+ *   安全にSTAGE1のみ解放の状態へフォールバックする。
  *
  * ファイル構成の方針（盤面データ→判定ロジック→renderの分離）：
  *   1) ロジック層：segmentsOfArrow/sweepGap/computeTravel/canArrowExit/
  *      findAvailableMoves/isSolvable/solveBoard/hasInitialOverlap/
  *      validateExitDirections は純粋関数（DOM非依存）。Node上でも直接
- *      requireしてユニットテストできる（盤面検証テストで使用）。
- *   2) 盤面データ層：LEVEL_BOARDSに、LEVEL1〜3それぞれ3盤面ずつ、計9盤面以上の
- *      手作り固定盤面を用意している（ランダム生成はしない）。全盤面は
- *      このファイル下部のNode向けエクスポート経由でsolverにより検証済み。
+ *      requireしてユニットテストできる（全STAGEのsolver検証で使用）。
+ *   2) 盤面データ層：magic-arrow-levels.js の MAGIC_ARROW_STAGES。
  *   3) ゲーム状態：module-scopeの `game` オブジェクト1つだけが状態を持つ。
- *   4) render層：renderBoard/updateLivesDisplay/showClearOverlay等がDOMを
- *      更新する。盤面はSVGで描画し、1 Arrow = 1 SVG <g class="ma-polyline-arrow">。
+ *   4) render層：renderBoard/updateLivesDisplay/renderStageSelect等がDOMを
+ *      更新する。盤面はSVGで描画し、1 Arrow = 1 SVG <g class="ma-polyline-arrow">
+ *      （visible line + arrowhead polygon + hit area）。
  *
  * 「必ず解ける盤面」の保証について：
  *   このパズルには「今動かせるArrowをどれか1つ取り除いても、他のArrowが
- *   新たに動かせなくなることは絶対に無い（取り除く＝スペースが空くだけで、
- *   経路をふさぐ領域が増えることは無い）」という合流性(confluence)が
- *   polyline方式でも成り立つ（各Arrowの必要スペースは単調に減るだけ）。
- *   そのため isSolvable() は「今動かせるArrowを1つ選んで取り除く」を
- *   Arrowが無くなるまで貪欲に繰り返すだけで判定でき（バックトラック不要）、
- *   これは「LEVEL_BOARDSの全盤面は、プレイヤーが実際にどんな順番でタップ
- *   しても絶対に詰まない」ことも同時に保証する。
+ *   新たに動かせなくなることは絶対に無い」という合流性(confluence)が
+ *   polyline方式でも成り立つ。そのため isSolvable() は「今動かせるArrowを
+ *   1つ選んで取り除く」をArrowが無くなるまで貪欲に繰り返すだけで判定でき、
+ *   これは「MAGIC_ARROW_STAGESの全STAGEは、プレイヤーが実際にどんな順番で
+ *   タップしても絶対に詰まない」ことも同時に保証する。全STAGEはビルド時に
+ *   このsolverで検証済み（scratchpadのstage_generator2.js参照。手作りpreset
+ *   ＋solver検証というspecの方針に沿い、実行時のランダム生成は行わない）。
  */
 (function () {
   /* ===================== ロジック層（DOM非依存・純粋関数） ===================== */
@@ -216,150 +228,37 @@
     return null;
   }
 
-  /* ===================== 盤面データ層（手作り固定盤面。ランダム生成はしない） ===================== */
+  /* ===================== 盤面データ層（STAGE 1〜30。将来STAGE100まで拡張可） ===================== */
 
-  /** セル座標(col,row) -> 中心座標{x,y}（グリッド単位）。 */
-  function pt(x, y) {
-    return { x: x + 0.5, y: y + 0.5 };
-  }
-  /** [[col,row],[col,row],...] のセル列とexitDirection/colorから1本のArrowを組み立てる。 */
-  function mkArrow(id, cells, exitDirection, color) {
-    return { id: id, points: cells.map((c) => pt(c[0], c[1])), exitDirection: exitDirection, color: color, state: "active" };
-  }
+  const STAGES_PER_LEVEL = 10;
 
-  const LEVEL_BOARDS = {
-    1: [
-      // level1a: 4本。直線3 + 長めのL字1。かなり簡単。
-      {
-        boardSize: 5,
-        arrows: [
-          mkArrow("a", [[1, 0], [3, 0]], "right", "pink"),
-          mkArrow("b", [[0, 1], [0, 3]], "down", "sky"),
-          mkArrow("c", [[4, 1], [4, 3], [2, 3]], "left", "gold"),
-          mkArrow("d", [[1, 4], [3, 4]], "right", "lavender"),
-        ],
-      },
-      // level1b: level1aを左右反転した構造同型の盤面（配色・向きが変わり見た目は変わる）。
-      {
-        boardSize: 5,
-        arrows: [
-          mkArrow("a", [[3, 0], [1, 0]], "left", "mint"),
-          mkArrow("b", [[4, 1], [4, 3]], "down", "gold"),
-          mkArrow("c", [[0, 1], [0, 3], [2, 3]], "right", "lavender"),
-          mkArrow("d", [[3, 4], [1, 4]], "left", "pink"),
-        ],
-      },
-      // level1c: 5本。短い直線を1本追加。
-      {
-        boardSize: 5,
-        arrows: [
-          mkArrow("a", [[0, 0], [2, 0]], "right", "gold"),
-          mkArrow("b", [[4, 0], [4, 2]], "down", "sky"),
-          mkArrow("c", [[0, 2], [0, 4]], "down", "pink"),
-          mkArrow("d", [[2, 4], [4, 4]], "right", "mint"),
-          mkArrow("e", [[2, 1], [2, 2]], "down", "lavender"),
-        ],
-      },
-    ],
-    2: [
-      // level2a: 6本。L字・コの字(U字)を含む。
-      {
-        boardSize: 6,
-        arrows: [
-          mkArrow("a", [[2, 0], [0, 0]], "left", "pink"),
-          mkArrow("b", [[5, 0], [5, 2], [3, 2]], "left", "gold"),
-          mkArrow("c", [[0, 1], [0, 3]], "down", "sky"),
-          mkArrow("d", [[1, 4], [1, 2], [2, 2], [2, 4]], "down", "lavender"),
-          mkArrow("e", [[2, 5], [4, 5]], "right", "mint"),
-          mkArrow("f", [[5, 3], [5, 5]], "down", "pink"),
-        ],
-      },
-      // level2b: 7本。階段状(staircase)とコの字(U字)を含む。
-      {
-        boardSize: 6,
-        arrows: [
-          mkArrow("a", [[0, 0], [2, 0], [2, 1], [4, 1]], "right", "gold"),
-          mkArrow("b", [[5, 0], [5, 2]], "down", "sky"),
-          mkArrow("c", [[0, 2], [0, 4]], "down", "pink"),
-          mkArrow("d", [[1, 5], [1, 3], [2, 3], [2, 5]], "down", "lavender"),
-          mkArrow("e", [[3, 5], [4, 5]], "right", "mint"),
-          mkArrow("f", [[5, 3], [5, 5]], "down", "gold"),
-          mkArrow("g", [[1, 2], [3, 2]], "right", "pink"),
-        ],
-      },
-      // level2c: 8本。level2aを拡張。
-      {
-        boardSize: 6,
-        arrows: [
-          mkArrow("a", [[2, 0], [0, 0]], "left", "pink"),
-          mkArrow("b", [[5, 0], [5, 2], [3, 2]], "left", "gold"),
-          mkArrow("c", [[0, 1], [0, 3]], "down", "sky"),
-          mkArrow("d", [[1, 4], [1, 2], [2, 2], [2, 4]], "down", "lavender"),
-          mkArrow("e", [[2, 5], [4, 5]], "right", "mint"),
-          mkArrow("f", [[5, 3], [5, 5]], "down", "pink"),
-          mkArrow("g", [[2, 1], [1, 1]], "left", "sky"),
-          mkArrow("h", [[3, 4], [4, 4]], "right", "gold"),
-        ],
-      },
-    ],
-    3: [
-      // level3a: 9本。7x7。盤面いっぱいに折れ線が絡み合う。
-      {
-        boardSize: 7,
-        arrows: [
-          mkArrow("a", [[2, 0], [0, 0]], "left", "pink"),
-          mkArrow("b", [[6, 0], [6, 2], [4, 2]], "left", "gold"),
-          mkArrow("c", [[0, 1], [0, 3]], "down", "sky"),
-          mkArrow("d", [[1, 4], [1, 2], [2, 2], [2, 4]], "down", "lavender"),
-          mkArrow("g", [[2, 1], [1, 1]], "left", "mint"),
-          mkArrow("e", [[2, 6], [4, 6]], "right", "pink"),
-          mkArrow("f", [[6, 3], [6, 5]], "down", "gold"),
-          mkArrow("h", [[3, 5], [4, 5]], "right", "sky"),
-          mkArrow("i", [[3, 3], [5, 3], [5, 4]], "down", "lavender"),
-        ],
-      },
-      // level3b: 11本。level3aを拡張。
-      {
-        boardSize: 7,
-        arrows: [
-          mkArrow("a", [[2, 0], [0, 0]], "left", "pink"),
-          mkArrow("b", [[6, 0], [6, 2], [4, 2]], "left", "gold"),
-          mkArrow("c", [[0, 1], [0, 3]], "down", "sky"),
-          mkArrow("d", [[1, 4], [1, 2], [2, 2], [2, 4]], "down", "lavender"),
-          mkArrow("g", [[2, 1], [1, 1]], "left", "mint"),
-          mkArrow("e", [[2, 6], [4, 6]], "right", "pink"),
-          mkArrow("f", [[6, 3], [6, 5]], "down", "gold"),
-          mkArrow("h", [[3, 5], [4, 5]], "right", "sky"),
-          mkArrow("i", [[3, 3], [5, 3], [5, 4]], "down", "lavender"),
-          mkArrow("j", [[5, 0], [3, 0]], "left", "mint"),
-          mkArrow("k", [[5, 1], [3, 1]], "left", "gold"),
-        ],
-      },
-      // level3c: 12本。7x7の中で最も密度が高い盤面。
-      {
-        boardSize: 7,
-        arrows: [
-          mkArrow("a", [[2, 0], [0, 0]], "left", "pink"),
-          mkArrow("b", [[6, 0], [6, 2], [4, 2]], "left", "gold"),
-          mkArrow("c", [[0, 1], [0, 3]], "down", "sky"),
-          mkArrow("d", [[1, 4], [1, 2], [2, 2], [2, 4]], "down", "lavender"),
-          mkArrow("g", [[2, 1], [1, 1]], "left", "mint"),
-          mkArrow("e", [[2, 6], [4, 6]], "right", "pink"),
-          mkArrow("f", [[6, 3], [6, 5]], "down", "gold"),
-          mkArrow("h", [[3, 5], [4, 5]], "right", "sky"),
-          mkArrow("i", [[3, 3], [5, 3], [5, 4]], "down", "lavender"),
-          mkArrow("j", [[5, 0], [3, 0]], "left", "mint"),
-          mkArrow("k", [[5, 1], [3, 1]], "left", "gold"),
-          mkArrow("l", [[1, 5], [1, 6], [0, 6]], "left", "sky"),
-        ],
-      },
-    ],
-  };
-  const MAX_LEVEL = 3;
+  /* Node環境(require)とブラウザ環境(<script>順読み込みでwindow.MAGIC_ARROW_STAGES)の
+     両方からMAGIC_ARROW_STAGESを取得する。 */
+  const MAGIC_ARROW_STAGES =
+    typeof module !== "undefined" && module.exports
+      ? require("./magic-arrow-levels.js")
+      : typeof window !== "undefined" && window.MAGIC_ARROW_STAGES
+      ? window.MAGIC_ARROW_STAGES
+      : [];
+
+  const MAX_STAGE = MAGIC_ARROW_STAGES.length;
+  const MAX_LEVEL = MAX_STAGE > 0 ? Math.ceil(MAX_STAGE / STAGES_PER_LEVEL) : 0;
   const START_LIVES = 3;
 
-  function randInt(min, max) {
-    return min + Math.floor(Math.random() * (max - min + 1));
+  function stageToLevel(stageNum) {
+    return Math.ceil(stageNum / STAGES_PER_LEVEL);
+  }
+
+  function stagesInLevel(levelNum) {
+    const start = (levelNum - 1) * STAGES_PER_LEVEL + 1;
+    const end = Math.min(levelNum * STAGES_PER_LEVEL, MAX_STAGE);
+    const list = [];
+    for (let s = start; s <= end; s++) list.push(s);
+    return list;
+  }
+
+  function getStageEntry(stageNum) {
+    return MAGIC_ARROW_STAGES.find((s) => s.stage === stageNum) || null;
   }
 
   /** {points,exitDirection,color,state:"active"}配列を独立コピーする(参照共有を断つ)。 */
@@ -373,17 +272,45 @@
     }));
   }
 
-  /**
-   * このLEVELの固定盤面プリセットからランダムに1つを選んで返す
-   * （手作り高品質盤面を優先し、ランダム生成は行わない）。
-   * すべてのプリセットはこのファイル下部のNode向けエクスポート経由で
-   * isSolvable()===true / hasInitialOverlap()===null / validateExitDirections()===null を
-   * 事前に検証済み。
-   */
-  function pickLevelBoard(levelNum) {
-    const presets = LEVEL_BOARDS[levelNum] || LEVEL_BOARDS[MAX_LEVEL];
-    const preset = presets[randInt(0, presets.length - 1)];
-    return { level: levelNum, boardSize: preset.boardSize, arrows: deepCloneArrows(preset.arrows) };
+  /** このSTAGEの固定盤面データを独立コピーして返す（ランダム生成はしない）。 */
+  function getStageBoard(stageNum) {
+    const entry = getStageEntry(stageNum);
+    if (!entry) return null;
+    return { stage: entry.stage, level: entry.level, boardSize: entry.boardSize, arrows: deepCloneArrows(entry.arrows) };
+  }
+
+  /* ===================== 進捗保存（localStorage） ===================== */
+  const PROGRESS_KEY = "magicArrowsProgress_v1";
+
+  function loadProgress() {
+    try {
+      if (typeof localStorage === "undefined") return { highestUnlockedStage: 1 };
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if (!raw) return { highestUnlockedStage: 1 };
+      const parsed = JSON.parse(raw);
+      const n = parsed && Number(parsed.highestUnlockedStage);
+      if (!Number.isFinite(n) || n < 1) return { highestUnlockedStage: 1 }; // データ破損時は安全にSTAGE1へ
+      return { highestUnlockedStage: Math.min(Math.floor(n), Math.max(MAX_STAGE, 1)) };
+    } catch (e) {
+      return { highestUnlockedStage: 1 }; // 破損・アクセス不可時も安全にSTAGE1へ
+    }
+  }
+
+  function saveProgress(highestUnlockedStage) {
+    try {
+      if (typeof localStorage === "undefined") return;
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify({ highestUnlockedStage: highestUnlockedStage }));
+    } catch (e) {
+      /* 保存できない環境(プライベートブラウズ等)でもゲーム自体は継続させる */
+    }
+  }
+
+  function resetProgress() {
+    try {
+      if (typeof localStorage !== "undefined") localStorage.removeItem(PROGRESS_KEY);
+    } catch (e) {
+      /* noop */
+    }
   }
 
   /* Node環境（盤面検証テストからのrequire）向けエクスポート。ブラウザでは無視される。 */
@@ -402,9 +329,14 @@
       solveBoard,
       hasInitialOverlap,
       validateExitDirections,
-      LEVEL_BOARDS,
+      MAGIC_ARROW_STAGES,
+      MAX_STAGE,
       MAX_LEVEL,
-      pickLevelBoard,
+      STAGES_PER_LEVEL,
+      stageToLevel,
+      stagesInLevel,
+      getStageBoard,
+      PROGRESS_KEY,
     };
   }
 
@@ -429,6 +361,8 @@
   const VISIBLE_STROKE = 0.4; // グリッド単位(1マス=1)。太いrounded stroke。
   const HIGHLIGHT_STROKE = 0.14;
   const HIT_STROKE = 0.78; // 子どもでも押しやすいよう、visibleより明確に太い透明stroke。
+  const HEAD_WIDTH = VISIBLE_STROKE * 2.3; // arrowhead幅：visible線の太さの約2.3倍
+  const HEAD_LENGTH = VISIBLE_STROKE * 1.7; // arrowhead長さ：隣のセルへはみ出しすぎない範囲
 
   const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -445,7 +379,9 @@
 
   /* ===================== DOM参照 ===================== */
   const homeStartBtn = document.getElementById("magic-arrows-start-btn");
+  const stageNumEl = document.getElementById("magic-arrows-stage-num");
   const levelNumEl = document.getElementById("magic-arrows-level-num");
+  const boardFrameEl = document.querySelector(".magic-arrows-board-frame");
   const boardEl = document.getElementById("magic-arrows-board");
   const fxLayerEl = document.getElementById("magic-arrows-fx-layer");
   const clearOverlayEl = document.getElementById("magic-arrows-clear-overlay");
@@ -454,25 +390,31 @@
   const clearPrincessEl = document.getElementById("magic-arrows-clear-princess");
   const nextBtn = document.getElementById("magic-arrows-next-btn");
   const againBtn = document.getElementById("magic-arrows-again-btn");
+  const stageSelectBtnInClear = document.getElementById("magic-arrows-stageselect-btn");
   const homeBtn = document.getElementById("magic-arrows-home-btn");
   const livesEl = document.getElementById("magic-arrows-lives");
   const gameoverOverlayEl = document.getElementById("magic-arrows-gameover-overlay");
   const gameoverHeartsEl = document.getElementById("magic-arrows-gameover-hearts");
   const retryBtn = document.getElementById("magic-arrows-retry-btn");
   const gameoverHomeBtn = document.getElementById("magic-arrows-gameover-home-btn");
+  const selectTabsEl = document.getElementById("magic-arrows-select-tabs");
+  const selectGridEl = document.getElementById("magic-arrows-select-grid");
 
   if (!homeStartBtn || !boardEl) return; // このHTMLが無い環境（他ページ等）では何もしない
 
   /* ===================== ゲーム状態 ===================== */
   const game = {
+    stage: 1,
     level: 1,
     boardSize: 5,
     arrows: [],
-    arrowEls: {}, // id -> {g, visible, hit, highlight}
+    arrowEls: {}, // id -> {g, visible, highlight, hit, head}
     locked: false, // クリア演出/GAME OVER中など、盤面全体の新規タップを一時停止したい場合に使う
     lives: START_LIVES,
     gameState: "playing", // "playing" | "gameover"
-    initialBoardState: [], // このLEVELを開始した瞬間のArrow配置(deep copy)。RETRYで使う。
+    initialBoardState: [], // このSTAGEを開始した瞬間のArrow配置(deep copy)。RETRYで使う。
+    selectLevelTab: 1, // STAGE SELECT画面で現在選んでいるLEVELタブ
+    progress: loadProgress(),
   };
 
   /* ===================== 小さなユーティリティ ===================== */
@@ -502,32 +444,37 @@
     return points.map((p, i) => (i === 0 ? "M" : "L") + p.x + "," + p.y).join(" ");
   }
 
+  /**
+   * Arrowの終点に付ける、明確に見える大きなarrowhead(▶◀▲▼相当)の三角形
+   * polygon座標(points属性文字列)を計算する。最終segmentの方向(=exitDirection)
+   * を向き、線と同じ位置から隙間なく生えるようにする。
+   */
+  function arrowHeadPolygonPoints(points, exitDirection) {
+    const tip = points[points.length - 1];
+    const dirVec = DIR_VEC[exitDirection];
+    // 進行方向の単位ベクトル・その垂直ベクトル
+    const ux = dirVec.ux, uy = dirVec.uy;
+    const px = -uy, py = ux; // 垂直方向
+    const apex = { x: tip.x + ux * HEAD_LENGTH, y: tip.y + uy * HEAD_LENGTH };
+    const baseCenter = tip; // 線の終点＝三角形の底辺の中心（隙間なし）
+    const baseL = { x: baseCenter.x + px * (HEAD_WIDTH / 2), y: baseCenter.y + py * (HEAD_WIDTH / 2) };
+    const baseR = { x: baseCenter.x - px * (HEAD_WIDTH / 2), y: baseCenter.y - py * (HEAD_WIDTH / 2) };
+    return [apex, baseL, baseR].map((p) => p.x + "," + p.y).join(" ");
+  }
+
   let defsBuilt = false;
-  function ensureMarkerDefs(svg) {
+  function ensureDefs(svg) {
     if (defsBuilt) return;
+    // 現状arrowheadはpolygonで直接描画するため<defs>のmarkerは不要だが、
+    // 将来的な拡張(グラデーション等)に備えて空のdefsだけ用意しておく。
     const defs = svgEl("defs", {});
-    Object.keys(ARROW_LINE_COLOR).forEach((color) => {
-      const marker = svgEl("marker", {
-        id: "ma-arrowhead-" + color,
-        viewBox: "0 0 1 1",
-        markerWidth: "1",
-        markerHeight: "1",
-        refX: "0.72",
-        refY: "0.5",
-        markerUnits: "strokeWidth",
-        orient: "auto",
-      });
-      const tri = svgEl("path", { d: "M0,0 L1,0.5 L0,1 Z", fill: ARROW_LINE_COLOR[color] });
-      marker.appendChild(tri);
-      defs.appendChild(marker);
-    });
     svg.appendChild(defs);
     defsBuilt = true;
   }
 
-  /** 1つのArrow(polyline)をSVG <g>として組み立てる。visible/highlight/hitの3本のpathを持つ。 */
+  /** 1つのArrow(polyline)をSVG <g>として組み立てる。visible/highlight/hit/headの4要素を持つ。 */
   function createArrowEl(svg, arrow) {
-    ensureMarkerDefs(svg);
+    ensureDefs(svg);
     const d = pointsToPath(arrow.points);
     const g = svgEl("g", { class: "ma-polyline-arrow ma-color-" + arrow.color, "data-arrow-id": arrow.id, tabindex: "0", role: "button", "aria-label": "magic arrow" });
 
@@ -562,12 +509,22 @@
       "stroke-linecap": "round",
       "stroke-linejoin": "round",
       "pointer-events": "none",
-      "marker-end": "url(#ma-arrowhead-" + arrow.color + ")",
+    });
+
+    // arrowhead：SVG markerに頼らず、明示的な<polygon>として描画する
+    // （iPhone Safariでも確実に表示させるため）。Arrow本体と同じ<g>内、
+    // Arrow移動時は線と完全に一緒に動く。ここも押せるようpointer-eventsは
+    // 無効化しない（Dの要件：arrowhead部分をタップしてもそのArrowを選択できる）。
+    const head = svgEl("polygon", {
+      class: "ma-arrow-head",
+      points: arrowHeadPolygonPoints(arrow.points, arrow.exitDirection),
+      fill: ARROW_LINE_COLOR[arrow.color] || "#8F6AE0",
     });
 
     g.appendChild(hit);
     g.appendChild(highlight);
     g.appendChild(visible);
+    g.appendChild(head);
 
     g.addEventListener("click", () => handleTap(arrow.id));
     g.addEventListener("keydown", (ev) => {
@@ -577,7 +534,7 @@
       }
     });
 
-    return { g: g, visible: visible, highlight: highlight, hit: hit };
+    return { g: g, visible: visible, highlight: highlight, hit: hit, head: head };
   }
 
   /* ===================== FX（sparkle / ripple） ===================== */
@@ -651,8 +608,21 @@
     }
   }
 
-  /* ===================== render層 ===================== */
+  /**
+   * STAGEのboardSizeに応じて盤面占有率(画面幅に対する%)を92〜96%の範囲で
+   * 広げる（spec J：STAGE 20以降は盤面をもっと大きく使ってよい）。
+   * gridが小さい序盤STAGEは92vw、盤面が密集する後半STAGEほど96vwに近づける。
+   */
+  function applyBoardFrameSize() {
+    if (!boardFrameEl) return;
+    const size = game.boardSize || 5;
+    const pct = Math.max(92, Math.min(96, 90 + size * 0.5));
+    boardFrameEl.style.setProperty("--ma-board-vw", pct + "vw");
+  }
+
+  /* ===================== render層（ゲーム盤面） ===================== */
   function renderBoard() {
+    applyBoardFrameSize();
     boardEl.innerHTML = "";
     if (fxLayerEl) fxLayerEl.innerHTML = "";
     defsBuilt = false;
@@ -688,6 +658,11 @@
       span.textContent = alive ? "❤️" : "🤍";
       livesEl.appendChild(span);
     }
+  }
+
+  function updateStageHud() {
+    if (stageNumEl) stageNumEl.textContent = String(game.stage);
+    if (levelNumEl) levelNumEl.textContent = String(game.level);
   }
 
   /* ===================== タップ処理 ===================== */
@@ -735,7 +710,7 @@
       if (els && els.g.parentNode) els.g.remove();
       delete game.arrowEls[arrow.id];
       if (isBoardClear()) {
-        setTimeout(onLevelClear, CLEAR_DELAY_MS);
+        setTimeout(onStageClear, CLEAR_DELAY_MS);
       }
     };
     if (els) {
@@ -744,7 +719,6 @@
         els.g.style.opacity = "0";
         setTimeout(finish, dur);
       } else {
-        // 少し盛り上がってから加速して抜ける、というease-inの動き。
         animateTransform(els.g, travel.dirVec, 0, travel.distance, dur, easeOutCubic, finish);
       }
     } else {
@@ -817,30 +791,39 @@
     if (gameoverOverlayEl) gameoverOverlayEl.hidden = false;
   }
 
-  /* ===================== レベル進行 ===================== */
-  /** 新しいLEVEL(このLEVELの固定盤面プリセットからランダムに1つ)を開始する。
+  /* ===================== STAGE進行 ===================== */
+  /** 新しいSTAGEの固定盤面を開始する。bypassLock=trueの場合はロック状態を無視する
+   *  （NEXT STAGE直後・デバッグAPI用）。ロックされていて開始できない場合は
+   *  falseを返す（STAGE SELECT側で無視される）。
    *  この瞬間のArrow配置を initialBoardState として保存しておき、
-   *  以降このLEVEL内でGAME OVER→RETRYになっても、この状態へ完全に戻せるようにする。 */
-  function loadLevel(n) {
-    const lvl = pickLevelBoard(n);
-    game.level = n;
+   *  以降このSTAGE内でGAME OVER→RETRYになっても、この状態へ完全に戻せるようにする。 */
+  function loadStage(n, opts) {
+    const bypassLock = !!(opts && opts.bypassLock);
+    if (n < 1 || n > MAX_STAGE) return false;
+    if (!bypassLock && n > game.progress.highestUnlockedStage) return false; // 未解放STAGEは開始しない
+    const lvl = getStageBoard(n);
+    if (!lvl) return false;
+    game.stage = n;
+    game.level = lvl.level;
     game.boardSize = lvl.boardSize;
     game.arrows = lvl.arrows;
     game.initialBoardState = deepCloneArrows(lvl.arrows);
     game.lives = START_LIVES;
     game.gameState = "playing";
     game.locked = false;
-    if (levelNumEl) levelNumEl.textContent = String(n);
+    updateStageHud();
     if (clearOverlayEl) clearOverlayEl.hidden = true;
     if (gameoverOverlayEl) gameoverOverlayEl.hidden = true;
     updateLivesDisplay();
     renderBoard();
+    return true;
   }
 
-  /** RETRY：新しい盤面は一切生成せず、「このLEVELを開始した瞬間の配置」の
+  /** RETRY：新しい盤面は一切生成せず、「このSTAGEを開始した瞬間の配置」の
    *  deep copyへ完全に戻す。消していたArrowもすべて復活し、LIFEも3へ全回復する。
-   *  currentBoard = deepClone(initialBoardState); lives = 3; gameState = "playing"; */
-  function retryLevel() {
+   *  currentBoard = deepClone(initialBoardState); lives = 3; gameState = "playing";
+   *  STAGE SELECTへは戻さない。 */
+  function retryStage() {
     game.arrows = deepCloneArrows(game.initialBoardState);
     game.lives = START_LIVES;
     game.gameState = "playing";
@@ -848,6 +831,16 @@
     if (gameoverOverlayEl) gameoverOverlayEl.hidden = true;
     updateLivesDisplay();
     renderBoard();
+  }
+
+  /** STAGE Nをクリアしたら、STAGE N+1 を解放してlocalStorageへ保存する。 */
+  function unlockStage(n) {
+    if (n < 1) return;
+    const bounded = Math.min(n, Math.max(MAX_STAGE, 1));
+    if (bounded > game.progress.highestUnlockedStage) {
+      game.progress.highestUnlockedStage = bounded;
+      saveProgress(bounded);
+    }
   }
 
   function spawnClearCelebration(isFinal) {
@@ -885,14 +878,17 @@
     }
   }
 
-  function onLevelClear() {
+  function onStageClear() {
     playAudioSfx("clear");
     game.locked = true;
-    const isFinal = game.level >= MAX_LEVEL;
+    const isFinal = game.stage >= MAX_STAGE;
+    unlockStage(game.stage + 1); // ボタンを押さずに離脱しても解放状態は残す
+
     if (youDidItEl) youDidItEl.textContent = "✨ YOU DID IT! ✨";
     if (clearSubEl) clearSubEl.textContent = isFinal ? "Magic complete! 🎉👑" : "Great job! 🎉";
     if (nextBtn) nextBtn.hidden = isFinal;
-    if (againBtn) againBtn.hidden = false;
+    if (againBtn) againBtn.hidden = !isFinal; // PLAY AGAINは最終STAGEクリア時のみ表示
+    if (stageSelectBtnInClear) stageSelectBtnInClear.hidden = false;
     if (homeBtn) homeBtn.hidden = false;
     if (clearOverlayEl) clearOverlayEl.hidden = false;
 
@@ -905,8 +901,76 @@
     spawnClearCelebration(isFinal);
   }
 
-  /* ===================== 画面遷移 / ボタン ===================== */
-  function startGame() {
+  /* ===================== STAGE SELECT画面 ===================== */
+  function renderStageSelectTabs() {
+    if (!selectTabsEl) return;
+    selectTabsEl.innerHTML = "";
+    for (let lvl = 1; lvl <= MAX_LEVEL; lvl++) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "magic-arrows-select-tab" + (lvl === game.selectLevelTab ? " is-active" : "");
+      btn.textContent = "LEVEL " + lvl;
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", lvl === game.selectLevelTab ? "true" : "false");
+      btn.addEventListener("click", () => {
+        game.selectLevelTab = lvl;
+        renderStageSelect();
+      });
+      selectTabsEl.appendChild(btn);
+    }
+  }
+
+  function renderStageSelectGrid() {
+    if (!selectGridEl) return;
+    selectGridEl.innerHTML = "";
+    const stages = stagesInLevel(game.selectLevelTab);
+    const highest = game.progress.highestUnlockedStage;
+    stages.forEach((s) => {
+      const unlocked = s <= highest;
+      const cleared = s < highest; // まだ挑戦していないhighest自身は「クリア済み」扱いにしない
+      const isNextPlayable = s === highest;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className =
+        "magic-arrows-stage-btn" +
+        (!unlocked ? " is-locked" : "") +
+        (cleared ? " is-cleared" : "") +
+        (isNextPlayable ? " is-next" : "");
+      btn.dataset.stage = String(s);
+      btn.disabled = !unlocked;
+      btn.setAttribute("aria-label", (unlocked ? "STAGE " + s : "STAGE " + s + "（ロック中）"));
+
+      const numSpan = document.createElement("span");
+      numSpan.className = "magic-arrows-stage-btn-num";
+      numSpan.textContent = String(s);
+      btn.appendChild(numSpan);
+
+      const badge = document.createElement("span");
+      badge.className = "magic-arrows-stage-btn-badge";
+      badge.setAttribute("aria-hidden", "true");
+      badge.textContent = !unlocked ? "🔒" : cleared ? "✓" : "";
+      btn.appendChild(badge);
+
+      if (unlocked) {
+        btn.addEventListener("click", () => startStageFromSelect(s));
+      }
+      selectGridEl.appendChild(btn);
+    });
+  }
+
+  function renderStageSelect() {
+    renderStageSelectTabs();
+    renderStageSelectGrid();
+  }
+
+  function openStageSelect() {
+    game.progress = loadProgress(); // 他タブ等での進捗変化も拾えるよう毎回読み直す
+    game.selectLevelTab = stageToLevel(Math.min(game.progress.highestUnlockedStage, MAX_STAGE || 1));
+    renderStageSelect();
+    if (typeof showScreen === "function") showScreen("screen-magic-arrows-select");
+  }
+
+  function startStageFromSelect(n) {
     if (window.audioManager) {
       window.audioManager.unlock();
       if (window.audioManager.isBgmEnabled && window.audioManager.isBgmEnabled()) {
@@ -914,23 +978,33 @@
       }
     }
     playAudioSfx("play");
-    loadLevel(1);
-    if (typeof showScreen === "function") showScreen("screen-magic-arrows");
+    const ok = loadStage(n);
+    if (ok && typeof showScreen === "function") showScreen("screen-magic-arrows");
   }
 
-  homeStartBtn.addEventListener("click", startGame);
+  /* ===================== 画面遷移 / ボタン ===================== */
+  // HOME → MAGIC ARROWS を押した直後にいきなり盤面を開始せず、STAGE SELECTを開く。
+  homeStartBtn.addEventListener("click", openStageSelect);
 
   if (nextBtn) {
     nextBtn.addEventListener("click", () => {
-      const next = Math.min(game.level + 1, MAX_LEVEL);
-      loadLevel(next);
+      const next = Math.min(game.stage + 1, MAX_STAGE);
+      loadStage(next, { bypassLock: true }); // クリア直後に解放したばかりのSTAGEへ確実に入れる
     });
   }
   if (againBtn) {
-    // PLAY AGAIN：RETRY(同じLEVEL・同じ盤面)ともNEXT LEVEL(次のLEVELの新しい盤面)とも違い、
-    // ゲーム全体をLEVEL1の新しい盤面からやり直す。
+    // PLAY AGAIN：STAGE30(最終)クリア時のみ表示。RETRY(同じSTAGE)ともNEXT STAGEとも違い、
+    // ゲーム全体をSTAGE1の新しい盤面からやり直す(進捗はリセットしない)。
     againBtn.addEventListener("click", () => {
-      loadLevel(1);
+      loadStage(1, { bypassLock: true });
+      if (typeof showScreen === "function") showScreen("screen-magic-arrows");
+    });
+  }
+  if (stageSelectBtnInClear) {
+    stageSelectBtnInClear.addEventListener("click", () => {
+      if (clearOverlayEl) clearOverlayEl.hidden = true;
+      game.locked = false;
+      openStageSelect();
     });
   }
   if (homeBtn) {
@@ -941,8 +1015,9 @@
     });
   }
   if (retryBtn) {
-    // RETRY：「失敗した直前の状態」ではなく、このLEVELを開始した最初の盤面へ完全に戻す。
-    retryBtn.addEventListener("click", retryLevel);
+    // RETRY：「失敗した直前の状態」ではなく、このSTAGEを開始した最初の盤面へ完全に戻す。
+    // STAGE SELECTには戻さない。
+    retryBtn.addEventListener("click", retryStage);
   }
   if (gameoverHomeBtn) {
     gameoverHomeBtn.addEventListener("click", () => {
@@ -956,6 +1031,7 @@
   window.__magicArrowsDebug = {
     getState() {
       return {
+        stage: game.stage,
         level: game.level,
         boardSize: game.boardSize,
         lives: game.lives,
@@ -983,14 +1059,51 @@
     solveCurrentBoard() {
       return solveBoard(game.arrows, game.boardSize);
     },
-    loadLevel(n) {
-      loadLevel(n);
+    getMaxStage() {
+      return MAX_STAGE;
     },
-    retryLevel() {
-      retryLevel();
+    getMaxLevel() {
+      return MAX_LEVEL;
+    },
+    getProgress() {
+      return { highestUnlockedStage: game.progress.highestUnlockedStage };
+    },
+    resetProgress() {
+      resetProgress();
+      game.progress = loadProgress();
+    },
+    // テスト用：ロック状態を無視してSTAGEを開始し、ゲーム画面も表示する(本番UIからは呼ばれない)
+    loadStage(n) {
+      const ok = loadStage(n, { bypassLock: true });
+      if (ok && typeof showScreen === "function") showScreen("screen-magic-arrows");
+      return ok;
+    },
+    // テスト用：ロックを尊重してSTAGE SELECTと同じ経路でSTAGEを開始する
+    loadStageRespectingLock(n) {
+      const ok = loadStage(n, { bypassLock: false });
+      if (ok && typeof showScreen === "function") showScreen("screen-magic-arrows");
+      return ok;
+    },
+    retryStage() {
+      retryStage();
     },
     tapArrow(id) {
       handleTap(id);
+    },
+    openStageSelect() {
+      openStageSelect();
+    },
+    unlockStage(n) {
+      unlockStage(n);
+    },
+    // 後方互換：旧デバッグAPI名(loadLevel/retryLevel)も残しておく
+    loadLevel(n) {
+      const ok = loadStage(n, { bypassLock: true });
+      if (ok && typeof showScreen === "function") showScreen("screen-magic-arrows");
+      return ok;
+    },
+    retryLevel() {
+      retryStage();
     },
   };
 })();

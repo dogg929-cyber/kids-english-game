@@ -2140,13 +2140,19 @@ button {
   background: var(--ps-card-bg);
   color: var(--ps-lavender-deep);
   font-weight: 900;
-  font-size: clamp(12px, 3.6vw, 15px);
+  font-size: clamp(11px, 3.3vw, 14px);
   letter-spacing: 0.3px;
-  padding: 9px 14px;
+  padding: 9px 12px;
   border-radius: var(--ps-radius-pill);
   box-shadow: 0 4px 0 var(--ps-shadow-soft), 0 6px 10px var(--ps-shadow-soft);
   white-space: nowrap;
 }
+/* ゲーム中HUD：LEVELバッジは小さく添える程度にし、盤面を狭くしない。 */
+.magic-arrows-level-badge {
+  font-size: clamp(9px, 2.6vw, 11px);
+  padding: 7px 10px;
+}
+.magic-arrows-select-spacer { width: 46px; height: 46px; flex: 0 0 auto; }
 
 .magic-arrows-wrap {
   position: relative;
@@ -2188,11 +2194,13 @@ button {
   }
 }
 
-/* 盤面フレーム：390×844で画面幅の約90〜94%を使い、線が盤面いっぱいに
-   絡み合って見えるよう大きく確保する。高さが足りない端末ではvh基準に切り替える。 */
+/* 盤面フレーム：390×844で画面幅の約90〜96%を使い、線が盤面いっぱいに
+   絡み合って見えるよう大きく確保する。高さが足りない端末ではvh基準に切り替える。
+   --ma-board-vw はSTAGEのboardSizeに応じてJS側(renderBoard)から設定する
+   （STAGEが進むほどグリッドが大きくなるため、盤面占有率も92%→96%へ広げる）。 */
 .magic-arrows-board-frame {
   position: relative;
-  width: min(92vw, 92dvh - 190px, 420px);
+  width: min(var(--ma-board-vw, 92vw), 92dvh - 190px, 460px);
   aspect-ratio: 1 / 1;
 }
 
@@ -2233,7 +2241,13 @@ button {
 .ma-polyline-arrow .ma-arrow-highlight {
   filter: drop-shadow(0 0.05px 0.07px rgba(0, 0, 0, 0.2));
 }
-.ma-polyline-arrow:active .ma-arrow-visible { opacity: 0.88; }
+/* arrowhead：終点に付く大きな▶◀▲▼相当の三角形。線と同色・隙間なし。
+   線とセットで<g>ごと動く/タップできるようpointer-eventsは無効化しない。 */
+.ma-polyline-arrow .ma-arrow-head {
+  filter: drop-shadow(0 0.05px 0.08px rgba(0, 0, 0, 0.25));
+}
+.ma-polyline-arrow:active .ma-arrow-visible,
+.ma-polyline-arrow:active .ma-arrow-head { opacity: 0.88; }
 
 .magic-arrows-impact-ring { background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 201, 77, 0.4) 55%, rgba(255, 201, 77, 0) 75%); }
 .magic-arrows-impact-spark { font-size: 14px; }
@@ -2312,4 +2326,129 @@ button {
 @media (max-height: 700px) {
   .magic-arrows-wrap { padding: 4px 10px 10px; }
   .magic-arrows-lives { padding: 54px 0 2px; }
+}
+
+/* =====================================================================
+ * STAGE SELECT：HOME → MAGIC ARROWS → STAGE SELECT → ゲーム開始、という
+ * 導線の中間画面。LEVELタブを切り替えて、そのLEVELの10 STAGE分のボタンを
+ * 表示する。星3評価・点数・ランキングは一切使用しない。
+ * ===================================================================== */
+.screen.magic-arrows-select-screen { padding: 0; overflow: hidden; }
+.magic-arrows-select-screen.active { display: block; }
+
+.magic-arrows-select-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 84px 18px 24px;
+  gap: 14px;
+}
+
+.magic-arrows-select-title {
+  margin: 0;
+  color: var(--ps-lavender-deep);
+  font-weight: 900;
+  font-size: clamp(18px, 6vw, 24px);
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+}
+
+.magic-arrows-select-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.magic-arrows-select-tab {
+  border: none;
+  cursor: pointer;
+  padding: 9px 18px;
+  border-radius: var(--ps-radius-pill);
+  background: var(--ps-card-bg);
+  color: var(--ps-lavender-deep);
+  font-weight: 800;
+  font-size: clamp(12px, 3.6vw, 14px);
+  box-shadow: 0 3px 0 var(--ps-shadow-soft), 0 5px 8px var(--ps-shadow-soft);
+  transition: transform 0.1s ease;
+}
+.magic-arrows-select-tab:active { transform: scale(0.94); }
+.magic-arrows-select-tab.is-active {
+  background: linear-gradient(150deg, var(--ps-lavender) 0%, var(--ps-lavender-deep) 100%);
+  color: #fff;
+}
+
+.magic-arrows-select-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  width: min(92vw, 420px);
+}
+
+.magic-arrows-stage-btn {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border: none;
+  border-radius: var(--ps-radius-m);
+  background: linear-gradient(160deg, #C9AEFF, var(--ps-lavender-deep));
+  box-shadow: 0 4px 0 #6E4FC4, 0 7px 10px var(--ps-shadow-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.magic-arrows-stage-btn:active:not(:disabled) { transform: scale(0.92); }
+.magic-arrows-stage-btn-num {
+  font-size: clamp(15px, 5vw, 20px);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.18);
+}
+.magic-arrows-stage-btn-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 14px;
+  line-height: 1;
+  background: #fff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
+}
+.magic-arrows-stage-btn-badge:empty { display: none; }
+
+.magic-arrows-stage-btn.is-locked {
+  background: linear-gradient(160deg, #E4DDF5, #B9AFD4);
+  box-shadow: 0 4px 0 #9186AC, 0 6px 8px var(--ps-shadow-soft);
+  cursor: not-allowed;
+}
+.magic-arrows-stage-btn.is-locked .magic-arrows-stage-btn-num { opacity: 0.45; }
+
+.magic-arrows-stage-btn.is-cleared {
+  background: linear-gradient(160deg, #FFE29A, var(--ps-gold-deep));
+  box-shadow: 0 4px 0 #B57F10, 0 7px 10px var(--ps-shadow-soft);
+}
+
+/* 次に遊べるSTAGE：少しglowする程度。派手な星やランキング演出は使わない。 */
+.magic-arrows-stage-btn.is-next { box-shadow: 0 4px 0 #6E4FC4, 0 0 0 4px rgba(255, 255, 255, 0.55), 0 7px 14px rgba(154, 100, 255, 0.4); }
+@media (prefers-reduced-motion: no-preference) {
+  .magic-arrows-stage-btn.is-next { animation: ma-stage-next-glow 1.6s ease-in-out infinite; }
+  @keyframes ma-stage-next-glow {
+    0%, 100% { box-shadow: 0 4px 0 #6E4FC4, 0 0 0 4px rgba(255, 255, 255, 0.5), 0 7px 14px rgba(154, 100, 255, 0.35); }
+    50% { box-shadow: 0 4px 0 #6E4FC4, 0 0 0 7px rgba(255, 255, 255, 0.75), 0 7px 18px rgba(154, 100, 255, 0.55); }
+  }
+}
+
+@media (max-height: 700px) {
+  .magic-arrows-select-wrap { padding: 68px 16px 16px; gap: 10px; }
 }

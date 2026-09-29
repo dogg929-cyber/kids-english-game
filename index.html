@@ -468,14 +468,43 @@
 <!-- =====================================================================
      MAGIC ARROWS：英語学習・発音練習とは完全に独立した、非言語のタップ
      パズルゲーム。SpeechRecognition/SpeechSynthesisは一切使用しない。
-     盤面データ・判定ロジックはすべて magic-arrows.js 側にDOM非依存の
-     関数として実装されており、このHTMLはrender先のコンテナのみを持つ。
+     STAGE制（STAGE 1〜30、LEVELはSTAGEを10個ずつまとめた表示上の区分）。
+     HOME → MAGIC ARROWS → STAGE SELECT → ゲーム開始、という導線。
+     盤面データ・判定ロジックはすべて magic-arrows.js / magic-arrow-levels.js
+     側にDOM非依存のデータ・関数として実装されており、このHTMLはrender先の
+     コンテナのみを持つ。
      ===================================================================== -->
-<section id="screen-magic-arrows" class="screen magic-arrows-screen">
+<section id="screen-magic-arrows-select" class="screen magic-arrows-select-screen">
   <div class="princess-hud">
     <button class="back-btn princess-home-btn" data-target="screen-home" aria-label="ホームへ もどる">🏠</button>
     <p class="magic-arrows-hud-title">✨ MAGIC ARROWS</p>
-    <div class="princess-progress-badge">LEVEL <span id="magic-arrows-level-num">1</span></div>
+    <div class="magic-arrows-select-spacer" aria-hidden="true"></div>
+  </div>
+
+  <!-- 背景（Princess Englishと同じお城の庭。装飾のみ・タップ不可） -->
+  <div class="princess-scenery magic-arrows-scenery" aria-hidden="true">
+    <div class="princess-sun">☀️</div>
+    <span class="princess-cloud princess-cloud-1">☁️</span>
+    <span class="princess-cloud princess-cloud-2">☁️</span>
+    <div class="princess-castle">🏰</div>
+  </div>
+
+  <div class="magic-arrows-select-wrap">
+    <p class="magic-arrows-select-title">STAGE SELECT</p>
+    <!-- LEVELタブ：magic-arrows.js が MAGIC_ARROW_STAGES から自動生成する
+         （STAGEが増えてもタブ数は自動で増える）。 -->
+    <div class="magic-arrows-select-tabs" id="magic-arrows-select-tabs" role="tablist"></div>
+    <!-- そのLEVELの10 STAGE分のボタン(🔒未解放 / ✓クリア済み / glow=次に遊べる)を
+         magic-arrows.js が生成する。 -->
+    <div class="magic-arrows-select-grid" id="magic-arrows-select-grid"></div>
+  </div>
+</section>
+
+<section id="screen-magic-arrows" class="screen magic-arrows-screen">
+  <div class="princess-hud">
+    <button class="back-btn princess-home-btn" data-target="screen-magic-arrows-select" aria-label="ステージ せんたくへ もどる">🏠</button>
+    <p class="magic-arrows-hud-title">✨ MAGIC ARROWS <span id="magic-arrows-stage-num">1</span></p>
+    <div class="princess-progress-badge magic-arrows-level-badge">LEVEL <span id="magic-arrows-level-num">1</span></div>
   </div>
 
   <!-- 背景（Princess Englishと同じお城の庭。装飾のみ・タップ不可） -->
@@ -504,22 +533,25 @@
     </div>
   </div>
 
-  <!-- レベルクリア演出：既存の.princess-magic-overlay/.princess-magic-cardを再利用。
-       LEVEL1/2は NEXT LEVEL(大)+PLAY AGAIN(小)、LEVEL3は PLAY AGAIN+HOME のみ表示。 -->
+  <!-- STAGEクリア演出：既存の.princess-magic-overlay/.princess-magic-cardを再利用。
+       STAGE1〜29クリア： NEXT STAGE(大) + STAGE SELECT(小) + HOME(小)。
+       STAGE30(最終)クリア：少し豪華な演出 + STAGE SELECT + PLAY AGAIN + HOME。 -->
   <div id="magic-arrows-clear-overlay" class="zoo-speak-overlay princess-magic-overlay" hidden>
     <div class="zoo-speak-card princess-magic-card princess-result-card magic-arrows-clear-card">
       <p class="princess-you-did-it" id="magic-arrows-you-did-it">✨ YOU DID IT! ✨</p>
       <img class="magic-arrows-clear-princess" id="magic-arrows-clear-princess" src="assets/princess.webp" alt="Princess" draggable="false" />
       <p class="princess-round-sub" id="magic-arrows-clear-sub">Great job! 🎉</p>
-      <button id="magic-arrows-next-btn" class="princess-play-again-btn ps-btn-3d">NEXT LEVEL ▶</button>
+      <button id="magic-arrows-next-btn" class="princess-play-again-btn ps-btn-3d">NEXT STAGE ▶</button>
       <button id="magic-arrows-again-btn" class="magic-arrows-again-btn ps-btn-3d">▶ PLAY AGAIN</button>
+      <button id="magic-arrows-stageselect-btn" class="magic-arrows-again-btn magic-arrows-stageselect-btn ps-btn-3d">STAGE SELECT</button>
       <button id="magic-arrows-home-btn" class="princess-result-home-btn">🏠</button>
     </div>
   </div>
 
   <!-- GAME OVER：3回衝突してLIFEが0になったら表示。スコア・広告・課金・Continueは無し。
-       RETRYはこのLEVELを開始した時と完全に同じ盤面(initialBoardStateのdeep copy)へ
-       戻す。NEXT LEVEL/PLAY AGAINのような新しい盤面生成は一切しない。 -->
+       RETRYはこのSTAGEを開始した時と完全に同じ盤面(initialBoardStateのdeep copy)へ
+       戻す。STAGE SELECTには戻さない。NEXT STAGE/PLAY AGAINのような新しい盤面生成は
+       一切しない。 -->
   <div id="magic-arrows-gameover-overlay" class="zoo-speak-overlay princess-magic-overlay magic-arrows-gameover-overlay" hidden>
     <div class="zoo-speak-card princess-magic-card princess-result-card magic-arrows-gameover-card">
       <p class="magic-arrows-gameover-title">GAME OVER</p>
@@ -596,6 +628,7 @@
 <script src="zoo.js"></script>
 <script src="princess.js"></script>
 <script src="dressup.js"></script>
+<script src="magic-arrow-levels.js"></script>
 <script src="magic-arrows.js"></script>
 </body>
 </html>
