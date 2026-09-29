@@ -466,9 +466,12 @@
 </section>
 
 <!-- =====================================================================
-     MAGIC ARROWS：英語学習・発音練習とは完全に独立した、非言語のタップ
-     パズルゲーム。SpeechRecognition/SpeechSynthesisは一切使用しない。
-     STAGE制（STAGE 1〜30、LEVELはSTAGEを10個ずつまとめた表示上の区分）。
+     MAGIC ARROWS：Arrow Escapeパズル + 英語listening comprehension。
+     STAGE6以降、英語の指示（例:"Find blue!"）を聞き取り、条件に合うArrowを
+     探してタップする。SpeechRecognition（発音認識）は絶対に使用しない
+     （speech.jsのSpeechSynthesis部分のみ再利用）。パズル(LIFE/衝突/RETRY)は
+     完全に既存のまま。STAGE制（STAGE 1〜30、LEVELはSTAGEを10個ずつまとめた
+     表示上の区分）。
      HOME → MAGIC ARROWS → STAGE SELECT → ゲーム開始、という導線。
      盤面データ・判定ロジックはすべて magic-arrows.js / magic-arrow-levels.js
      側にDOM非依存のデータ・関数として実装されており、このHTMLはrender先の
@@ -524,6 +527,14 @@
   <div class="magic-arrows-lives" id="magic-arrows-lives" aria-hidden="true"></div>
 
   <div class="magic-arrows-wrap">
+    <!-- 英語listening prompt：STAGE6以降のみ表示するコンパクトな吹き出し。
+         日本語訳は表示しない(英語のみ)。STAGE1〜5はhidden属性のまま維持する。
+         盤面を圧迫しないよう、盤面枠(.magic-arrows-board-frame)の幅には影響しない。 -->
+    <div class="magic-arrows-prompt-bubble" id="magic-arrows-prompt-bubble" hidden>
+      <button id="magic-arrows-replay-btn" class="princess-replay-btn ps-btn-3d magic-arrows-replay-btn" aria-label="もういちど きく">🔊</button>
+      <p class="magic-arrows-prompt-text" id="magic-arrows-prompt-text"></p>
+    </div>
+
     <!-- 盤面：magic-arrows.js が loadLevel()/renderBoard() でSVGを生成する。
          1 Arrow = 1本の折れ曲がった線(<g class="ma-polyline-arrow">)。
          四角いタイルは使用しない。viewBoxがそのままグリッド座標になる。 -->

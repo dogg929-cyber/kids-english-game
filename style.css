@@ -2194,6 +2194,59 @@ button {
   }
 }
 
+/* ---------- 英語listening prompt bubble（STAGE6以降のみ）----------
+   盤面を圧迫しないコンパクトな1行の吹き出し。日本語訳は一切表示しない
+   （英語テキストのみ + 🔊 Replay）。STAGE1〜5はJS側でhidden属性のまま
+   維持され、完全に非表示になる。 */
+.magic-arrows-prompt-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 460px);
+  margin: 0 auto 10px;
+  padding: 6px 16px 6px 6px;
+  background: var(--ps-card-bg);
+  border: 2px solid var(--ps-card-border);
+  border-radius: var(--ps-radius-pill);
+  box-shadow: 0 5px 0 rgba(232, 163, 25, 0.12), 0 7px 12px var(--ps-shadow-soft);
+}
+.magic-arrows-prompt-bubble[hidden] { display: none; }
+.magic-arrows-replay-btn {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+.magic-arrows-prompt-text {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: clamp(14px, 4.4vw, 18px);
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--ps-pink-deep);
+  text-align: left;
+}
+@media (max-height: 700px) {
+  .magic-arrows-prompt-bubble { padding: 5px 12px 5px 5px; margin-bottom: 6px; }
+  .magic-arrows-replay-btn { width: 34px; height: 34px; font-size: 16px; }
+}
+
+/* Wrong-Englishタップ（物理的には抜けられるが、promptの条件に一致しない
+   Arrowをタップした場合）のソフトなpulse。LIFEは減らさず、Arrowも消えず、
+   位置も変えない：あくまで「ちがうよ、もう一度聞いてね」という柔らかい
+   フィードバックのみ。衝突(collide)の赤みや振動とは明確に区別する。 */
+@media (prefers-reduced-motion: no-preference) {
+  .ma-polyline-arrow.ma-soft-pulse .ma-arrow-visible,
+  .ma-polyline-arrow.ma-soft-pulse .ma-arrow-head {
+    animation: ma-soft-pulse 420ms ease;
+  }
+  @keyframes ma-soft-pulse {
+    0%, 100% { opacity: 1; }
+    35% { opacity: 0.45; }
+    65% { opacity: 0.85; }
+  }
+}
+
 /* 盤面フレーム：390×844で画面幅の約90〜96%を使い、線が盤面いっぱいに
    絡み合って見えるよう大きく確保する。高さが足りない端末ではvh基準に切り替える。
    --ma-board-vw はSTAGEのboardSizeに応じてJS側(renderBoard)から設定する
@@ -2368,7 +2421,7 @@ button {
 .magic-arrows-select-tab {
   border: none;
   cursor: pointer;
-  padding: 9px 18px;
+  padding: 8px 16px 7px;
   border-radius: var(--ps-radius-pill);
   background: var(--ps-card-bg);
   color: var(--ps-lavender-deep);
@@ -2376,11 +2429,24 @@ button {
   font-size: clamp(12px, 3.6vw, 14px);
   box-shadow: 0 3px 0 var(--ps-shadow-soft), 0 5px 8px var(--ps-shadow-soft);
   transition: transform 0.1s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
 }
 .magic-arrows-select-tab:active { transform: scale(0.94); }
 .magic-arrows-select-tab.is-active {
   background: linear-gradient(150deg, var(--ps-lavender) 0%, var(--ps-lavender-deep) 100%);
   color: #fff;
+}
+/* LEVELタブに添える学習内容の小さな補助ラベル(spec 24・任意)。
+   STAGE1〜5にも英語があるとは誤解させない、あくまで「その帯の学習テーマ」の目安。 */
+.magic-arrows-select-tab-sub {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  opacity: 0.85;
+  margin-top: 1px;
 }
 
 .magic-arrows-select-grid {

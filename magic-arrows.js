@@ -228,6 +228,183 @@
     return null;
   }
 
+  /* ===================== 英語リスニング層（STAGE 6以降。DOM非依存・純粋関数） =====================
+   * MAGIC ARROWSはSpeechRecognition（発音認識）を絶対に使わない。ここで行うのは
+   * 「英語を聞く→意味を理解する→合っているArrowをタップする」というlistening
+   * comprehensionだけで、SpeechSynthesis（読み上げ）のみを使う。
+   *
+   * chooseEnglishPrompt()の最重要ルール（spec 8）：
+   *   promptは必ず findAvailableMoves() で「今実際に抜けられるArrow」を求め、
+   *   その中からのみ条件を組み立てる。盤面の状態を無視してランダムに
+   *   「Find blue!」等を生成することは絶対に禁止（該当する抜けられるArrowが
+   *   0個の状態でその色を言うことは絶対に無い）。
+   *
+   * 安全なprompt選択（spec 9・10・26）：
+   *   同じ条件に一致する「今は抜けられないArrow」が他に存在すると、正しく
+   *   聞き取った子どもがそちらを間違って選んでLIFEを失う恐れがある。そのため
+   *   「条件に一致するblocked Arrowが存在しない」prompt候補を優先し、無ければ
+   *   より具体的な条件（色+方向）へエスカレーションし、それでも無理なら
+   *   既存語彙の範囲内で一意にavailableなArrowを指すpromptへフォールバックする
+   *   （新しい語彙・文法は絶対に増やさない）。
+   */
+
+  const PROMPT_START_STAGE = 6; // STAGE1〜5は英語なし（既存の非言語パズルのまま）
+
+  // 既存のPrincess Englishパレット色名 → 英語学習用の色名（見た目のパレットは変更しない）
+  const LEARNING_COLOR_MAP = { pink: "pink", lavender: "purple", sky: "blue", gold: "yellow", mint: "green" };
+  function learningColorOf(color) {
+    return LEARNING_COLOR_MAP[color] || color;
+  }
+
+  function capWord(w) {
+    return w ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+  }
+
+  /** STAGEに応じて、その回で使ってよい文構造(style)の候補を返す（学習語彙は spec 23 の範囲のみ）。 */
+  function stageTextStyleOptions(stage) {
+    if (stage < PROMPT_START_STAGE) return [];
+    if (stage <= 10) return ["color"]; // STAGE6-10: COLORS（例: "Find blue!"）
+    if (stage <= 15) return ["colorArrow"]; // STAGE11-15: COLOR+ARROW（例: "Find the pink arrow!"）
+    if (stage <= 20) return ["direction"]; // STAGE16-20: DIRECTIONS（例: "Find an arrow pointing left!"）
+    if (stage <= 25) return ["colorDirection"]; // STAGE21-25: COLOR+DIRECTION
+    return ["color", "colorArrow", "direction", "colorDirection"]; // STAGE26-30: MIXED（既出の構文のみ再利用）
+  }
+
+  function matchTypeOfStyle(style) {
+    if (style === "direction") return "direction";
+    if (style === "colorDirection") return "colorDirection";
+    return "color"; // "color" / "colorArrow"
+  }
+
+  function shuffleInPlace(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  /**
+   * matchTypeごとの候補一覧を作る。各候補は「今available（実際に抜けられる）な
+   * Arrowのidだけ」を ids に持ち、safe: true は「同じ条件に一致するblocked
+   * （今available集合に含まれない）Arrowが1つも無い」ことを意味する。
+   */
+  function candidatesForMatchType(matchType, available, active) {
+    if (matchType === "color") {
+      const seen = [];
+      available.forEach((a) => {
+        const c = learningColorOf(a.color);
+        if (seen.indexOf(c) === -1) seen.push(c);
+      });
+      return seen.map((c) => {
+        const ids = available.filter((a) => learningColorOf(a.color) === c).map((a) => a.id);
+        const conflict = active.some((a) => learningColorOf(a.color) === c && ids.indexOf(a.id) === -1);
+        return { color: c, ids: ids, safe: !conflict };
+      });
+    }
+    if (matchType === "direction") {
+      const seen = [];
+      available.forEach((a) => {
+        if (seen.indexOf(a.exitDirection) === -1) seen.push(a.exitDirection);
+      });
+      return seen.map((d) => {
+        const ids = available.filter((a) => a.exitDirection === d).map((a) => a.id);
+        const conflict = active.some((a) => a.exitDirection === d && ids.indexOf(a.id) === -1);
+        return { direction: d, ids: ids, safe: !conflict };
+      });
+    }
+    // colorDirection
+    const seenPairs = [];
+    available.forEach((a) => {
+      const key = learningColorOf(a.color) + "|" + a.exitDirection;
+      if (seenPairs.indexOf(key) === -1) seenPairs.push(key);
+    });
+    return seenPairs.map((key) => {
+      const parts = key.split("|");
+      const c = parts[0], d = parts[1];
+      const ids = available.filter((a) => learningColorOf(a.color) === c && a.exitDirection === d).map((a) => a.id);
+      const conflict = active.some((a) => learningColorOf(a.color) === c && a.exitDirection === d && ids.indexOf(a.id) === -1);
+      return { color: c, direction: d, ids: ids, safe: !conflict };
+    });
+  }
+
+  function promptTextForStyle(style, chosen) {
+    if (style === "color") return "Find " + chosen.color + "!";
+    if (style === "colorArrow") return "Find the " + chosen.color + " arrow!";
+    if (style === "direction") return "Find an arrow pointing " + chosen.direction + "!";
+    return "Find the " + chosen.color + " arrow pointing " + chosen.direction + "!"; // colorDirection
+  }
+
+  function conceptForStyle(style) {
+    if (style === "direction") return "direction";
+    if (style === "colorDirection") return "color-direction";
+    return "color"; // color / colorArrow
+  }
+
+  function buildPromptFromCandidate(style, chosen) {
+    return {
+      text: promptTextForStyle(style, chosen),
+      targetArrowIds: chosen.ids.slice(),
+      concept: conceptForStyle(style),
+      color: chosen.color || null,
+      direction: chosen.direction || null,
+      style: style,
+      safe: !!chosen.safe,
+    };
+  }
+
+  /**
+   * その回の安全なEnglish promptを1つ選ぶ。available（今抜けられるArrow）が
+   * 1つも無い場合はnullを返す（盤面が既にクリア済み等）。
+   * 戻り値は必ず targetArrowIds.length >= 1 かつ全てavailable由来（spec 8必達）。
+   */
+  function chooseEnglishPrompt(arrows, boardSize, stage) {
+    const active = arrows.filter((a) => a.state === "active");
+    const available = findAvailableMoves(active, boardSize);
+    if (!available.length) return null;
+    const styles = stageTextStyleOptions(stage);
+    if (!styles.length) return null;
+
+    const order = styles.slice();
+    if (order.length > 1) shuffleInPlace(order);
+
+    function bestForStyle(style) {
+      const candidates = candidatesForMatchType(matchTypeOfStyle(style), available, active);
+      if (!candidates.length) return null;
+      const safe = candidates.find((c) => c.safe);
+      return buildPromptFromCandidate(style, safe || candidates[0]);
+    }
+
+    // 1) STAGE本来のstyleの中に、完全に安全(blockedとの条件重複が無い)なものがあれば最優先。
+    for (const style of order) {
+      const result = bestForStyle(style);
+      if (result && result.safe) return result;
+    }
+    // 2) 無ければ、より具体的な color+direction へエスカレーション(spec 26のフォールバック)。
+    const escalated = bestForStyle("colorDirection");
+    if (escalated && escalated.safe) return escalated;
+    // 3) それでも安全なものが無ければ、STAGE本来のstyleでベストエフォート(非nullを保証)。
+    for (const style of order) {
+      const result = bestForStyle(style);
+      if (result) return result;
+    }
+    // 4) 最終フォールバック：available.length>=1が保証されている以上、必ず何か返せる。
+    return escalated;
+  }
+
+  /** 正解タップ直後の短いフィードバック文（spec 13：テンポ優先で短く）。 */
+  function buildFeedbackText(prompt) {
+    if (!prompt) return "Great!";
+    const colorWord = prompt.color ? capWord(prompt.color) : null;
+    const dirWord = prompt.direction ? capWord(prompt.direction) : null;
+    if (colorWord && dirWord) return colorWord + ". " + dirWord + "!";
+    if (colorWord) return Math.random() < 0.5 ? colorWord + "!" : "Great!";
+    if (dirWord) return dirWord + "!";
+    return "Great!";
+  }
+
   /* ===================== 盤面データ層（STAGE 1〜30。将来STAGE100まで拡張可） ===================== */
 
   const STAGES_PER_LEVEL = 10;
@@ -329,6 +506,12 @@
       solveBoard,
       hasInitialOverlap,
       validateExitDirections,
+      PROMPT_START_STAGE,
+      LEARNING_COLOR_MAP,
+      learningColorOf,
+      stageTextStyleOptions,
+      chooseEnglishPrompt,
+      buildFeedbackText,
       MAGIC_ARROW_STAGES,
       MAX_STAGE,
       MAX_LEVEL,
@@ -399,6 +582,15 @@
   const gameoverHomeBtn = document.getElementById("magic-arrows-gameover-home-btn");
   const selectTabsEl = document.getElementById("magic-arrows-select-tabs");
   const selectGridEl = document.getElementById("magic-arrows-select-grid");
+  const promptBubbleEl = document.getElementById("magic-arrows-prompt-bubble");
+  const promptTextEl = document.getElementById("magic-arrows-prompt-text");
+  const replayBtn = document.getElementById("magic-arrows-replay-btn");
+
+  const INITIAL_PROMPT_DELAY_MS = 350; // 画面表示→300〜500ms待ってから最初のpromptを話す(spec 18)
+  // STAGE SELECTの各LEVELタブに添える、学習内容の小さな補助ラベル(spec 24・任意)。
+  // STAGE1〜5に英語が無いことを誤解させないよう、あくまで「そのLEVEL帯の学習テーマ」として
+  // 添えるだけにとどめる。
+  const LEVEL_LEARNING_LABEL = { 1: "PLAY + COLORS", 2: "DIRECTIONS", 3: "MIX IT UP!" };
 
   if (!homeStartBtn || !boardEl) return; // このHTMLが無い環境（他ページ等）では何もしない
 
@@ -415,6 +607,8 @@
     initialBoardState: [], // このSTAGEを開始した瞬間のArrow配置(deep copy)。RETRYで使う。
     selectLevelTab: 1, // STAGE SELECT画面で現在選んでいるLEVELタブ
     progress: loadProgress(),
+    currentPrompt: null, // 現在表示/読み上げ中のEnglish prompt({text,targetArrowIds,...}) or null
+    promptToken: 0, // 初回prompt用のsetTimeoutを無効化するためのトークン(STAGE切替/RETRY時に更新)
   };
 
   /* ===================== 小さなユーティリティ ===================== */
@@ -665,6 +859,88 @@
     if (levelNumEl) levelNumEl.textContent = String(game.level);
   }
 
+  /* ===================== 英語リスニングprompt（STAGE6以降のみ） =====================
+   * SpeechRecognition（発音認識）はここでは絶対に使わない。speech.js の
+   * SpeechSynthesis部分（Speech.speak/Speech.cancelSpeaking）だけを再利用する。
+   * BGMのduck/unduckはspeech.js内部で既存のaudioManager.duck("speech")/unduckを
+   * 呼んでいるため、ここから個別に呼ぶ必要はない。 */
+  function promptEnabledForStage(stage) {
+    return stage >= PROMPT_START_STAGE;
+  }
+
+  function hidePromptBubble() {
+    if (promptBubbleEl) promptBubbleEl.hidden = true;
+    if (promptTextEl) promptTextEl.textContent = "";
+  }
+
+  function renderPrompt(prompt) {
+    game.currentPrompt = prompt;
+    if (!promptBubbleEl || !promptTextEl) return;
+    if (!prompt) {
+      hidePromptBubble();
+      return;
+    }
+    promptTextEl.textContent = prompt.text;
+    promptBubbleEl.hidden = false;
+  }
+
+  function speakPrompt(prompt) {
+    if (!prompt || typeof window.Speech === "undefined") return;
+    if (replayBtn) replayBtn.classList.add("speaking");
+    window.Speech.speak(prompt.text, {
+      rate: 0.85, // spec 14：子ども向けにやや遅め(0.8〜0.9)
+      onEnd: () => {
+        if (replayBtn) replayBtn.classList.remove("speaking");
+      },
+    });
+  }
+
+  /** STAGE開始/RETRY直後：盤面表示→300〜500ms待ってから最初のpromptを選んで話す(spec 18)。 */
+  function scheduleInitialPrompt() {
+    if (!promptEnabledForStage(game.stage)) {
+      hidePromptBubble();
+      game.currentPrompt = null;
+      return;
+    }
+    const token = ++game.promptToken;
+    setTimeout(() => {
+      if (token !== game.promptToken) return; // その間にSTAGE切替/RETRYされていたら無視
+      if (game.gameState !== "playing") return;
+      const prompt = chooseEnglishPrompt(game.arrows, game.boardSize, game.stage);
+      renderPrompt(prompt);
+      speakPrompt(prompt);
+    }, INITIAL_PROMPT_DELAY_MS);
+  }
+
+  /** 正解のArrowが完全に盤面外へ抜けた「後」にだけ呼ぶ、次のpromptの生成(spec 19)。
+   *  removeArrow→board状態更新→checkClear→(クリアでなければ)findAvailableMoves()→
+   *  chooseEnglishPrompt()→renderPrompt()→speakPrompt() という順序は、この関数の
+   *  呼び出し元(exitArrowのfinish内、isBoardClear()==false確定後)で保証される。 */
+  function advancePromptAfterExit() {
+    if (!promptEnabledForStage(game.stage)) return;
+    if (game.gameState !== "playing") return;
+    const prompt = chooseEnglishPrompt(game.arrows, game.boardSize, game.stage);
+    renderPrompt(prompt);
+    speakPrompt(prompt);
+  }
+
+  /** Wrong-Englishタップ：物理的には抜けられるが、現在のpromptの条件には一致しないArrowを
+   *  タップした場合の処理。LIFEは減らさず、Arrowも消えない。ソフトなpulseだけ見せて、
+   *  「同じprompt」をもう一度読み上げる（新しいpromptは選び直さない＝spec 11・25）。 */
+  function wrongEnglishTap(arrow) {
+    const els = game.arrowEls[arrow.id];
+    if (els) spawnSoftPulse(els.g);
+    if (game.currentPrompt) speakPrompt(game.currentPrompt);
+  }
+
+  function spawnSoftPulse(g) {
+    if (prefersReducedMotion()) return;
+    g.classList.remove("ma-soft-pulse");
+    void g.getBBox && g.getBBox(); // reflow
+    g.classList.add("ma-soft-pulse");
+    setTimeout(() => g.classList.remove("ma-soft-pulse"), 420);
+  }
+
   /* ===================== タップ処理 ===================== */
   function handleTap(arrowId) {
     if (game.locked || game.gameState !== "playing") return; // GAME OVER中は操作不可
@@ -673,11 +949,21 @@
 
     const activeArrows = game.arrows.filter((a) => a.state === "active");
     const travel = computeTravel(arrow, activeArrows, game.boardSize);
-    if (!travel.blocked) {
-      exitArrow(arrow, travel);
-    } else {
+    if (travel.blocked) {
+      // 物理的にブロックされているArrow：英語promptの正誤に関わらず、常にこちら(既存のLIFE制)。
+      // ❤️はパズルの衝突だけで減り、英語の聞き取りミスでは絶対に減らない(spec 11・12・25)。
       collideArrow(arrow, travel);
+      return;
     }
+    // 物理的には抜けられる。STAGE6以降でpromptが有効な間は、英語の条件に一致するかを確認する。
+    if (promptEnabledForStage(game.stage) && game.currentPrompt) {
+      const isTarget = game.currentPrompt.targetArrowIds.indexOf(arrowId) !== -1;
+      if (!isTarget) {
+        wrongEnglishTap(arrow);
+        return;
+      }
+    }
+    exitArrow(arrow, travel);
   }
 
   /** requestAnimationFrameでArrowの<g>のtransformを直接更新する汎用アニメーション。 */
@@ -709,8 +995,31 @@
       arrow.state = "removed";
       if (els && els.g.parentNode) els.g.remove();
       delete game.arrowEls[arrow.id];
+      // removeArrow → board状態更新 → checkClear → (クリアでなければ) findAvailableMoves()→
+      // chooseEnglishPrompt()→renderPrompt()→speakPrompt() という順序(spec 19)。
       if (isBoardClear()) {
+        // クリア演出(YOU DID IT)を最優先し、次のpromptは絶対に話さない(spec 21)。
+        game.currentPrompt = null;
+        hidePromptBubble();
+        if (typeof window.Speech !== "undefined") window.Speech.cancelSpeaking();
         setTimeout(onStageClear, CLEAR_DELAY_MS);
+        return;
+      }
+      if (promptEnabledForStage(game.stage)) {
+        const hadPrompt = game.currentPrompt;
+        const wasTarget = hadPrompt && hadPrompt.targetArrowIds.indexOf(arrow.id) !== -1;
+        if (wasTarget) {
+          // 正解フロー(spec 13)：短いフィードバック→次のprompt。テンポ優先で長い褒め言葉は避ける。
+          const feedback = buildFeedbackText(hadPrompt);
+          if (typeof window.Speech !== "undefined") {
+            window.Speech.speak(feedback, { rate: 0.85, onEnd: () => advancePromptAfterExit() });
+          } else {
+            advancePromptAfterExit();
+          }
+        } else {
+          // 稀な競合(prompt未生成の間に抜けた等)への安全策：フィードバックなしで次のpromptへ。
+          advancePromptAfterExit();
+        }
       }
     };
     if (els) {
@@ -754,6 +1063,7 @@
       if (game.lives <= 0) {
         game.gameState = "gameover";
         game.locked = true; // これ以降、他のArrowも含めて一切操作を受け付けない
+        if (typeof window.Speech !== "undefined") window.Speech.cancelSpeaking(); // spec 20：GAME OVER時は英語音声を即座に停止
       }
     };
 
@@ -811,11 +1121,15 @@
     game.lives = START_LIVES;
     game.gameState = "playing";
     game.locked = false;
+    game.currentPrompt = null;
+    if (typeof window.Speech !== "undefined") window.Speech.cancelSpeaking();
+    hidePromptBubble();
     updateStageHud();
     if (clearOverlayEl) clearOverlayEl.hidden = true;
     if (gameoverOverlayEl) gameoverOverlayEl.hidden = true;
     updateLivesDisplay();
     renderBoard();
+    scheduleInitialPrompt(); // STAGE6以降のみ、盤面表示後300〜500ms待って最初のpromptを話す(spec 18)
     return true;
   }
 
@@ -828,9 +1142,14 @@
     game.lives = START_LIVES;
     game.gameState = "playing";
     game.locked = false;
+    game.currentPrompt = null;
+    if (typeof window.Speech !== "undefined") window.Speech.cancelSpeaking();
+    hidePromptBubble();
     if (gameoverOverlayEl) gameoverOverlayEl.hidden = true;
     updateLivesDisplay();
     renderBoard();
+    // RETRYは盤面こそ同じだが、promptは現在のavailable movesから安全に選び直す(spec 20：使い回さない)。
+    scheduleInitialPrompt();
   }
 
   /** STAGE Nをクリアしたら、STAGE N+1 を解放してlocalStorageへ保存する。 */
@@ -909,7 +1228,18 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "magic-arrows-select-tab" + (lvl === game.selectLevelTab ? " is-active" : "");
-      btn.textContent = "LEVEL " + lvl;
+      const mainSpan = document.createElement("span");
+      mainSpan.className = "magic-arrows-select-tab-main";
+      mainSpan.textContent = "LEVEL " + lvl;
+      btn.appendChild(mainSpan);
+      const learningLabel = LEVEL_LEARNING_LABEL[lvl];
+      if (learningLabel) {
+        const subSpan = document.createElement("span");
+        subSpan.className = "magic-arrows-select-tab-sub";
+        subSpan.textContent = learningLabel;
+        btn.appendChild(subSpan);
+      }
+      btn.setAttribute("aria-label", "LEVEL " + lvl + (learningLabel ? " " + learningLabel : ""));
       btn.setAttribute("role", "tab");
       btn.setAttribute("aria-selected", lvl === game.selectLevelTab ? "true" : "false");
       btn.addEventListener("click", () => {
@@ -1026,6 +1356,12 @@
       if (typeof showScreen === "function") showScreen("screen-home");
     });
   }
+  if (replayBtn) {
+    // 🔊 Replay：同じpromptをもう一度話すだけ。LIFEもArrowの状態も一切変えない(spec 16)。
+    replayBtn.addEventListener("click", () => {
+      if (game.currentPrompt) speakPrompt(game.currentPrompt);
+    });
+  }
 
   /* ===================== テスト専用デバッグAPI（本番UIからは呼ばれない） ===================== */
   window.__magicArrowsDebug = {
@@ -1089,6 +1425,24 @@
     },
     tapArrow(id) {
       handleTap(id);
+    },
+    getCurrentPrompt() {
+      return game.currentPrompt
+        ? {
+            text: game.currentPrompt.text,
+            targetArrowIds: game.currentPrompt.targetArrowIds.slice(),
+            concept: game.currentPrompt.concept,
+            color: game.currentPrompt.color,
+            direction: game.currentPrompt.direction,
+          }
+        : null;
+    },
+    isPromptEnabled() {
+      return promptEnabledForStage(game.stage);
+    },
+    // テスト用：現在の盤面に対してchooseEnglishPromptを直接呼ぶ(タイマーを待たない)
+    choosePromptNow() {
+      return chooseEnglishPrompt(game.arrows, game.boardSize, game.stage);
     },
     openStageSelect() {
       openStageSelect();
