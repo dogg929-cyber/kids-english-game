@@ -2159,19 +2159,23 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(8px, 2.2vh, 16px);
-  padding: 76px 16px 20px;
+  padding: 6px 12px 14px;
 }
 
-/* LIFE：❤️×3。blocked Arrowへ衝突するたびに1つ🤍に変わる。スコア表示ではない。 */
+/* LIFE：❤️×3。blocked Arrowへ衝突するたびに1つ🤍に変わる。スコア表示ではない。
+   HUD直下にコンパクトな1行として配置し、盤面(パズル領域)を圧迫しない。
+   「残りArrow」の黄色いドット表示は盤面を広く取るため廃止した。 */
 .magic-arrows-lives {
+  position: relative;
+  z-index: 2;
   display: flex;
   justify-content: center;
-  gap: 6px;
-  min-height: 22px;
+  gap: 5px;
+  min-height: 20px;
+  padding: 58px 0 2px;
 }
 .magic-arrows-life {
-  font-size: 22px;
+  font-size: 19px;
   line-height: 1;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
 }
@@ -2184,38 +2188,30 @@ button {
   }
 }
 
-/* 残り矢印数：星やランキングではなく、小さな宝石ドットで視覚的にだけ伝える。 */
-.magic-arrows-remaining {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-content: flex-start;
-  gap: 5px;
-  max-width: 280px;
-  min-height: 12px;
-}
-.magic-arrows-remaining-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: linear-gradient(150deg, #FFE9A8, var(--ps-gold-deep));
-  box-shadow: 0 1px 0 rgba(232, 163, 25, 0.45);
-}
-
+/* 盤面フレーム：390×844で画面幅の約90〜94%を使い、線が盤面いっぱいに
+   絡み合って見えるよう大きく確保する。高さが足りない端末ではvh基準に切り替える。 */
 .magic-arrows-board-frame {
   position: relative;
-  width: min(88vw, 380px);
+  width: min(92vw, 92dvh - 190px, 420px);
+  aspect-ratio: 1 / 1;
 }
 
+/* 盤面本体：SVG1枚。1 Arrow = 1本の折れ曲がった線(<g class="ma-polyline-arrow">)。
+   四角い背景タイルは一切使用しない。viewBoxがそのままグリッド座標(1マス=1)になる。 */
 .magic-arrows-board {
   position: relative;
   z-index: 1;
   width: 100%;
-  aspect-ratio: 1 / 1;
-  display: grid;
-  grid-template-columns: repeat(var(--ma-grid, 3), 1fr);
-  grid-template-rows: repeat(var(--ma-grid, 3), 1fr);
-  gap: clamp(6px, 2vw, 11px);
+  height: 100%;
+  border-radius: var(--ps-radius-l);
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.5));
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.7), 0 10px 22px rgba(120, 96, 160, 0.18);
+}
+.magic-arrows-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
 .magic-arrows-fx-layer {
@@ -2226,150 +2222,21 @@ button {
   overflow: visible;
 }
 
-/* ---------- 魔法の宝石タイル本体 ---------- */
-.magic-arrow-tile {
-  position: relative;
-  border: none;
-  border-radius: var(--ps-radius-m);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.12s ease;
+/* ---------- polyline Arrow本体 ---------- */
+.ma-polyline-arrow { cursor: pointer; }
+.ma-polyline-arrow .ma-arrow-hit { cursor: pointer; }
+.ma-polyline-arrow:focus { outline: none; }
+.ma-polyline-arrow:focus .ma-arrow-visible {
+  filter: drop-shadow(0 0 0.06px #fff) drop-shadow(0 0 0.12px rgba(255, 255, 255, 0.9));
 }
-.magic-arrow-tile:active { transform: scale(0.93); }
+.ma-polyline-arrow .ma-arrow-visible,
+.ma-polyline-arrow .ma-arrow-highlight {
+  filter: drop-shadow(0 0.05px 0.07px rgba(0, 0, 0, 0.2));
+}
+.ma-polyline-arrow:active .ma-arrow-visible { opacity: 0.88; }
 
-.magic-arrow-tile-highlight {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 55%);
-  pointer-events: none;
-}
-
-.magic-arrow-glyph {
-  display: block;
-  line-height: 1;
-  font-size: clamp(24px, 9vw, 48px);
-  color: #fff;
-  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
-  transform-origin: center;
-  pointer-events: none;
-}
-/* 色と方向は無関係：方向は矢印グリフの回転だけで明確に判断できるようにする。 */
-.magic-arrow-tile.ma-dir-up .magic-arrow-glyph { transform: rotate(0deg); }
-.magic-arrow-tile.ma-dir-right .magic-arrow-glyph { transform: rotate(90deg); }
-.magic-arrow-tile.ma-dir-down .magic-arrow-glyph { transform: rotate(180deg); }
-.magic-arrow-tile.ma-dir-left .magic-arrow-glyph { transform: rotate(270deg); }
-
-/* 5色パレット。色と方向・意味は無関係（見た目のバリエーションのみ）。 */
-.ma-color-lavender { background: linear-gradient(160deg, #C9AEFF, var(--ps-lavender-deep)); box-shadow: 0 5px 0 #6E4FC4, 0 9px 14px var(--ps-shadow-soft); }
-.ma-color-pink { background: linear-gradient(160deg, #FFB7CE, var(--ps-pink-deep)); box-shadow: 0 5px 0 #C4436C, 0 9px 14px var(--ps-shadow-soft); }
-.ma-color-sky { background: linear-gradient(160deg, #DCF1FF, var(--ps-sky-deep)); box-shadow: 0 5px 0 #4E9BCB, 0 9px 14px var(--ps-shadow-soft); }
-.ma-color-gold { background: linear-gradient(160deg, #FFE9A8, var(--ps-gold-deep)); box-shadow: 0 5px 0 #B57F10, 0 9px 14px var(--ps-shadow-soft); }
-.ma-color-mint { background: linear-gradient(160deg, #C6F5DC, #4FBE8B); box-shadow: 0 5px 0 #2F8F63, 0 9px 14px var(--ps-shadow-soft); }
-
-/* ---------- 動かせる矢印：タップ→sparkle→加速して盤面の外へ ---------- */
-.magic-arrow-tile[class*="ma-exit-"] { z-index: 6; pointer-events: none; }
-@media (prefers-reduced-motion: no-preference) {
-  .ma-exit-up { animation: ma-exit-up 0.45s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
-  .ma-exit-down { animation: ma-exit-down 0.45s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
-  .ma-exit-left { animation: ma-exit-left 0.45s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
-  .ma-exit-right { animation: ma-exit-right 0.45s cubic-bezier(0.4, 0, 0.8, 1) forwards; }
-  @keyframes ma-exit-up {
-    0% { transform: translateY(0) scale(1); opacity: 1; }
-    22% { transform: translateY(-6px) scale(1.1); opacity: 1; }
-    100% { transform: translateY(-140vh) scale(0.55); opacity: 0; }
-  }
-  @keyframes ma-exit-down {
-    0% { transform: translateY(0) scale(1); opacity: 1; }
-    22% { transform: translateY(6px) scale(1.1); opacity: 1; }
-    100% { transform: translateY(140vh) scale(0.55); opacity: 0; }
-  }
-  @keyframes ma-exit-left {
-    0% { transform: translateX(0) scale(1); opacity: 1; }
-    22% { transform: translateX(-6px) scale(1.1); opacity: 1; }
-    100% { transform: translateX(-140vw) scale(0.55); opacity: 0; }
-  }
-  @keyframes ma-exit-right {
-    0% { transform: translateX(0) scale(1); opacity: 1; }
-    22% { transform: translateX(6px) scale(1.1); opacity: 1; }
-    100% { transform: translateX(140vw) scale(0.55); opacity: 0; }
-  }
-}
-/* reduced-motionでは長距離の飛行アニメーションを使わず、短いfade+shrinkだけに
-   短縮する。ただし「どの矢印が消えたか」は分かるよう、消える瞬間の演出は残す。 */
-@media (prefers-reduced-motion: reduce) {
-  .ma-exit-reduced { animation: ma-exit-fade-reduced 0.18s ease-in forwards; }
-  @keyframes ma-exit-fade-reduced {
-    0% { transform: scale(1); opacity: 1; }
-    100% { transform: scale(0.7); opacity: 0; }
-  }
-}
-
-/* ---------- 動けない矢印：LIFE制の衝突（collide）演出。
-   進行方向へ少し動く→他Arrowへコツンと当たる→元の位置へ戻る、という一連の
-   動きを見せる。横スライドで画面全体が揺れることはなく、対象のタイル1枚だけが
-   動く。赤い×・ブザー・強い振動・画面シェイクは一切使わない。 ---------- */
-@media (prefers-reduced-motion: no-preference) {
-  .ma-collide-up { animation: ma-collide-up 0.42s ease-in-out; }
-  .ma-collide-down { animation: ma-collide-down 0.42s ease-in-out; }
-  .ma-collide-left { animation: ma-collide-left 0.42s ease-in-out; }
-  .ma-collide-right { animation: ma-collide-right 0.42s ease-in-out; }
-  @keyframes ma-collide-up {
-    0% { transform: translateY(0) scale(1); }
-    40% { transform: translateY(-13px) scale(1.05); }
-    55% { transform: translateY(-13px) scale(1.05); }
-    100% { transform: translateY(0) scale(1); }
-  }
-  @keyframes ma-collide-down {
-    0% { transform: translateY(0) scale(1); }
-    40% { transform: translateY(13px) scale(1.05); }
-    55% { transform: translateY(13px) scale(1.05); }
-    100% { transform: translateY(0) scale(1); }
-  }
-  @keyframes ma-collide-left {
-    0% { transform: translateX(0) scale(1); }
-    40% { transform: translateX(-13px) scale(1.05); }
-    55% { transform: translateX(-13px) scale(1.05); }
-    100% { transform: translateX(0) scale(1); }
-  }
-  @keyframes ma-collide-right {
-    0% { transform: translateX(0) scale(1); }
-    40% { transform: translateX(13px) scale(1.05); }
-    55% { transform: translateX(13px) scale(1.05); }
-    100% { transform: translateX(0) scale(1); }
-  }
-}
-/* reduced-motionでは移動量ゼロの短いopacity点滅だけにする（「これはダメだった」は
-   分かるが、大きな移動アニメーションは行わない）。 */
-@media (prefers-reduced-motion: reduce) {
-  .ma-collide-reduced { animation: ma-collide-reduced 0.17s ease; }
-  @keyframes ma-collide-reduced {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-  }
-}
-
-.magic-arrows-ripple { border-color: rgba(255, 255, 255, 0.9); }
 .magic-arrows-impact-ring { background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 201, 77, 0.4) 55%, rgba(255, 201, 77, 0) 75%); }
 .magic-arrows-impact-spark { font-size: 14px; }
-
-/* ---------- 初回チュートリアル：LEVEL1開始時、最初に動かせる矢印だけを
-   2〜3回軽くpulseさせる。文章説明は一切表示しない。 ---------- */
-@media (prefers-reduced-motion: no-preference) {
-  .ma-tutorial-pulse { animation: ma-tutorial-pulse 0.75s ease-in-out 3; }
-  @keyframes ma-tutorial-pulse {
-    0%, 100% { transform: scale(1); filter: brightness(1); }
-    50% { transform: scale(1.1); filter: brightness(1.18); }
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ma-tutorial-pulse-reduced {
-    outline: 3px solid rgba(255, 255, 255, 0.85);
-    outline-offset: 2px;
-  }
-}
 
 /* ---------- レベルクリア演出：既存の.princess-magic-card等を土台に、
    Princess本体のbounce+small danceだけ追加する。 ---------- */
@@ -2439,11 +2306,10 @@ button {
 }
 
 /* ---------- レスポンシブ：390×844 / 375×667 のどちらでも横スクロール無し、
-   盤面が画面外へ切れない、クリア画面が画面内に収まることを最優先にする。 ---------- */
+   盤面が画面外へ切れない、クリア画面が画面内に収まることを最優先にする。
+   .magic-arrows-board-frame の width は min(92vw, 92dvh - 190px, 420px) で
+   常に正方形かつ画面内に収まるよう動的に決まるため、ここでは余白のみ調整する。 ---------- */
 @media (max-height: 700px) {
-  .magic-arrows-wrap { padding: 68px 14px 16px; }
-  .magic-arrows-board-frame { width: min(84vw, 320px); }
-}
-@media (max-width: 360px) {
-  .magic-arrows-board-frame { width: min(90vw, 300px); }
+  .magic-arrows-wrap { padding: 4px 10px 10px; }
+  .magic-arrows-lives { padding: 54px 0 2px; }
 }

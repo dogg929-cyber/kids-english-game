@@ -489,16 +489,15 @@
     <span class="princess-particle princess-particle-2">✨</span>
   </div>
 
+  <!-- LIFE：各LEVEL開始時に❤️❤️❤️の3つ。blocked Arrowへ衝突するたびに1つ減る。
+       スコア・順位ではなく「あと何回間違えられるか」を視覚だけで伝える。
+       HUD直下にコンパクトに配置し、盤面を圧迫しない。 -->
+  <div class="magic-arrows-lives" id="magic-arrows-lives" aria-hidden="true"></div>
+
   <div class="magic-arrows-wrap">
-    <!-- LIFE：各LEVEL開始時に❤️❤️❤️の3つ。blocked Arrowへ衝突するたびに1つ減る。
-         スコア・順位ではなく「あと何回間違えられるか」を視覚だけで伝える。 -->
-    <div class="magic-arrows-lives" id="magic-arrows-lives" aria-hidden="true"></div>
-
-    <!-- 残り矢印数の視覚表示（星ではなく小さな宝石ドット。スコア/順位ではない）。 -->
-    <div class="magic-arrows-remaining" id="magic-arrows-remaining" aria-hidden="true"></div>
-
-    <!-- 盤面：magic-arrows.js が createLevel()/renderBoard() で中身を生成する。
-         グリッドサイズはCSSカスタムプロパティ --ma-grid で渡す。 -->
+    <!-- 盤面：magic-arrows.js が loadLevel()/renderBoard() でSVGを生成する。
+         1 Arrow = 1本の折れ曲がった線(<g class="ma-polyline-arrow">)。
+         四角いタイルは使用しない。viewBoxがそのままグリッド座標になる。 -->
     <div class="magic-arrows-board-frame">
       <div class="magic-arrows-board" id="magic-arrows-board"></div>
       <div class="magic-arrows-fx-layer" id="magic-arrows-fx-layer" aria-hidden="true"></div>
